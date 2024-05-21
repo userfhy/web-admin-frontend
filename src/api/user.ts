@@ -1,4 +1,5 @@
 import { http } from "@/utils/http";
+import { baseUrlApi } from "./utils";
 
 export type UserResult = {
   success: boolean;
@@ -22,6 +23,7 @@ export type UserResult = {
 
 export type RefreshTokenResult = {
   success: boolean;
+  msg: string;
   data: {
     /** `token` */
     accessToken: string;
@@ -68,12 +70,16 @@ type ResultTable = {
 
 /** 登录 */
 export const getLogin = (data?: object) => {
-  return http.request<UserResult>("post", "/login", { data });
+  // return http.request<UserResult>("post", "/login", { data });
+  return http.request<UserResult>("post", baseUrlApi("login"), { data });
 };
 
 /** 刷新`token` */
 export const refreshTokenApi = (data?: object) => {
-  return http.request<RefreshTokenResult>("post", "/refresh-token", { data });
+  // return http.request<RefreshTokenResult>("post", "/refresh-token", { data });
+  return http.request<RefreshTokenResult>("post", baseUrlApi("refresh_token"), {
+    data
+  });
 };
 
 /** 账户设置-个人信息 */
@@ -84,4 +90,9 @@ export const getMine = (data?: object) => {
 /** 账户设置-个人安全日志 */
 export const getMineLogs = (data?: object) => {
   return http.request<ResultTable>("get", "/mine-logs", { data });
+};
+
+/** 退出登录 */
+export const logOutApi = (data?: object) => {
+  return http.request("put", baseUrlApi("user/logout"), { data });
 };
