@@ -79,55 +79,55 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
       prop: "id",
       width: 90
     },
-    {
-      label: "用户头像",
-      prop: "avatar",
-      cellRenderer: ({ row }) => (
-        <el-image
-          fit="cover"
-          preview-teleported={true}
-          src={row.avatar || userAvatar}
-          preview-src-list={Array.of(row.avatar || userAvatar)}
-          class="w-[24px] h-[24px] rounded-full align-middle"
-        />
-      ),
-      width: 90
-    },
+    // {
+    //   label: "用户头像",
+    //   prop: "avatar",
+    //   cellRenderer: ({ row }) => (
+    //     <el-image
+    //       fit="cover"
+    //       preview-teleported={true}
+    //       src={row.avatar || userAvatar}
+    //       preview-src-list={Array.of(row.avatar || userAvatar)}
+    //       class="w-[24px] h-[24px] rounded-full align-middle"
+    //     />
+    //   ),
+    //   width: 90
+    // },
     {
       label: "用户名称",
-      prop: "username",
+      prop: "user_name",
       minWidth: 130
     },
-    {
-      label: "用户昵称",
-      prop: "nickname",
-      minWidth: 130
-    },
-    {
-      label: "性别",
-      prop: "sex",
-      minWidth: 90,
-      cellRenderer: ({ row, props }) => (
-        <el-tag
-          size={props.size}
-          type={row.sex === 1 ? "danger" : null}
-          effect="plain"
-        >
-          {row.sex === 1 ? "女" : "男"}
-        </el-tag>
-      )
-    },
-    {
-      label: "部门",
-      prop: "dept.name",
-      minWidth: 90
-    },
-    {
-      label: "手机号码",
-      prop: "phone",
-      minWidth: 90,
-      formatter: ({ phone }) => hideTextAtIndex(phone, { start: 3, end: 6 })
-    },
+    // {
+    //   label: "用户昵称",
+    //   prop: "nickname",
+    //   minWidth: 130
+    // },
+    // {
+    //   label: "性别",
+    //   prop: "sex",
+    //   minWidth: 90,
+    //   cellRenderer: ({ row, props }) => (
+    //     <el-tag
+    //       size={props.size}
+    //       type={row.sex === 1 ? "danger" : null}
+    //       effect="plain"
+    //     >
+    //       {row.sex === 1 ? "女" : "男"}
+    //     </el-tag>
+    //   )
+    // },
+    // {
+    //   label: "部门",
+    //   prop: "dept.name",
+    //   minWidth: 90
+    // },
+    // {
+    //   label: "手机号码",
+    //   prop: "phone",
+    //   minWidth: 90,
+    //   formatter: ({ phone }) => hideTextAtIndex(phone, { start: 3, end: 6 })
+    // },
     {
       label: "状态",
       prop: "status",
@@ -150,9 +150,14 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
     {
       label: "创建时间",
       minWidth: 90,
-      prop: "createTime",
-      formatter: ({ createTime }) =>
-        dayjs(createTime).format("YYYY-MM-DD HH:mm:ss")
+      prop: "created_at",
+    },
+    {
+      label: "登录时间",
+      minWidth: 90,
+      prop: "logged_in_at",
+      // formatter: ({ createTime }) =>
+      //   dayjs(createTime).format("YYYY-MM-DD HH:mm:ss")
     },
     {
       label: "操作",
