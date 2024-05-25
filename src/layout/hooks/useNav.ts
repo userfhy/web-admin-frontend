@@ -97,7 +97,11 @@ export function useNav() {
   }
 
   /** 退出登录 */
-  function logout() {
+  function logout(api: boolean = false) {
+    if (api) {
+      useUserStoreHook().logOutWithAPi();
+      return;
+    }
     useUserStoreHook().logOut();
   }
 

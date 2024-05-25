@@ -86,16 +86,19 @@ export const useUserStore = defineStore({
     },
     /** 前端登出（不调用接口） */
     logOut() {
+      this.username = "";
+      this.roles = [];
+      removeToken();
+      useMultiTagsStoreHook().handleTags("equal", [...routerArrays]);
+      resetRouter();
+      router.push("/login");
+    },
+    logOutWithAPi() {
       new Promise((resolve, reject) => {
         logOutApi()
           .then(data => {
             if (data) {
-              this.username = "";
-              this.roles = [];
-              removeToken();
-              useMultiTagsStoreHook().handleTags("equal", [...routerArrays]);
-              resetRouter();
-              router.push("/login");
+              this.logOut();
               resolve(data);
             }
           })

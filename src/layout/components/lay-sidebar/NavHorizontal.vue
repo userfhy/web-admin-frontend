@@ -117,7 +117,7 @@ nextTick(() => {
             {{ t("buttons.pureAccountSettings") }}
           </el-dropdown-item>
           <el-dropdown-menu class="logout">
-            <el-dropdown-item @click="logout">
+            <el-dropdown-item @click="logout(true)">
               <IconifyIconOffline
                 :icon="LogoutCircleRLine"
                 style="margin: 5px"
