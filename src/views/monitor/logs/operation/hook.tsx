@@ -93,7 +93,7 @@ export function useRole(tableRef: Ref) {
     console.log(`${val} items per page`);
   }
 
-  function handleCurrentChange(val: number) {
+  function 
     console.log(`current page: ${val}`);
   }
 

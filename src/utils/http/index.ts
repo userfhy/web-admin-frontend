@@ -133,6 +133,13 @@ class PureHttp {
           PureHttp.initConfig.beforeResponseCallback(response);
           return response.data;
         }
+        // 错误提示
+        if (response.data.code == 401) {
+          message(response.data.msg, {
+            type: "error",
+            duration: 5000,
+          });
+        }
         return response.data;
       },
       (error: PureHttpError) => {

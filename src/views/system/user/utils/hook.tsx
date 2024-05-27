@@ -1,5 +1,5 @@
 import "./reset.css";
-import dayjs from "dayjs";
+// import dayjs from "dayjs";
 import roleForm from "../form/role.vue";
 import editForm from "../form/index.vue";
 import { zxcvbn } from "@zxcvbn-ts/core";
@@ -14,7 +14,7 @@ import type { FormItemProps, RoleFormItemProps } from "../utils/types";
 import {
   getKeyList,
   isAllEmpty,
-  hideTextAtIndex,
+  // hideTextAtIndex,
   deviceDetection
 } from "@pureadmin/utils";
 import {
@@ -47,7 +47,9 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
     deptId: "",
     username: "",
     phone: "",
-    status: ""
+    status: "",
+    p: 1,
+    n: 10
   });
   const formRef = ref();
   const ruleFormRef = ref();
@@ -243,10 +245,12 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
 
   function handleSizeChange(val: number) {
     console.log(`${val} items per page`);
+    onSearch();
   }
 
   function handleCurrentChange(val: number) {
     console.log(`current page: ${val}`);
+    onSearch();
   }
 
   /** 当CheckBox选择项发生变化时会触发该事件 */
@@ -277,11 +281,12 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
 
   async function onSearch() {
     loading.value = true;
+    form.p = pagination.currentPage;
+    form.n = pagination.pageSize;
     const { data } = await getUserList(toRaw(form));
     dataList.value = data.list;
     pagination.total = data.total;
     pagination.pageSize = data.pageSize;
-    pagination.currentPage = data.currentPage;
 
     setTimeout(() => {
       loading.value = false;
