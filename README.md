@@ -11,6 +11,10 @@
 `vue-pure-admin` 是一款开源免费且开箱即用的中后台管理系统模版。完全采用 `ECMAScript` 模块（`ESM`）规范来编写和组织代码，使用了最新的 `Vue3`、
 `Vite`、`Element-Plus`、`TypeScript`、`Pinia`、`Tailwindcss` 等主流技术开发
 
+## 研发理念
+
+稳定中求创新，技术中见未来
+
 ## 赞助商
 
 <a class="logo" href="https://ai-tools.cn/resume/start" target="_blank" rel="sponsored noopener">
@@ -37,6 +41,10 @@
 ## 优质服务、软件外包、赞助支持
 
 [点我查看详情](https://pure-admin.github.io/pure-admin-doc/pages/service/)
+
+## `max` 版本
+
+[点我查看 max 版本](https://github.com/pure-admin/vue-pure-admin-max)
 
 ## `Tauri` 版本
 
