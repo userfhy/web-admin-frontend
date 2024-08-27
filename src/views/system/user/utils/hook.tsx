@@ -245,11 +245,13 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
 
   function handleSizeChange(val: number) {
     console.log(`${val} items per page`);
+    pagination.pageSize = val;
     onSearch();
   }
 
   function handleCurrentChange(val: number) {
     console.log(`current page: ${val}`);
+    pagination.currentPage = val;
     onSearch();
   }
 
