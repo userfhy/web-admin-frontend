@@ -152,12 +152,12 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
     {
       label: "创建时间",
       minWidth: 90,
-      prop: "created_at",
+      prop: "created_at"
     },
     {
       label: "登录时间",
       minWidth: 90,
-      prop: "logged_in_at",
+      prop: "logged_in_at"
       // formatter: ({ createTime }) =>
       //   dayjs(createTime).format("YYYY-MM-DD HH:mm:ss")
     },

@@ -3,7 +3,7 @@ import { baseUrlApi } from "./utils";
 
 export type UserResult = {
   success: boolean;
-  msg: string,
+  msg: string;
   data: {
     /** 头像 */
     avatar: string;

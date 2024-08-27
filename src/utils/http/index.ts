@@ -137,7 +137,7 @@ class PureHttp {
         if (response.data.code == 401) {
           message(response.data.msg, {
             type: "error",
-            duration: 5000,
+            duration: 5000
           });
         }
         return response.data;
@@ -149,7 +149,7 @@ class PureHttp {
         NProgress.done();
         // 如果无权限提示
         if ($error.response.status == 401) {
-          var responseData = $error.response.data;
+          var responseData = $error.response;
           console.log(responseData);
           message(responseData.msg, {
             type: "error",
