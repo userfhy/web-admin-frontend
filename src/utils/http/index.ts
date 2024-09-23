@@ -150,8 +150,7 @@ class PureHttp {
         // 如果无权限提示
         if ($error.response.status == 401) {
           var responseData = $error.response;
-          console.log(responseData);
-          message(responseData.msg, {
+          message(responseData.statusText, {
             type: "error",
             duration: 3000,
             onClose: () => {
