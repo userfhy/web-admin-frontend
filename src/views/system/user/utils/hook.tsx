@@ -14,7 +14,7 @@ import type { FormItemProps, RoleFormItemProps } from "../utils/types";
 import {
   getKeyList,
   isAllEmpty,
-  // hideTextAtIndex,
+  hideTextAtIndex,
   deviceDetection
 } from "@pureadmin/utils";
 import {
@@ -100,36 +100,36 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
       prop: "user_name",
       minWidth: 130
     },
-    // {
-    //   label: "用户昵称",
-    //   prop: "nickname",
-    //   minWidth: 130
-    // },
-    // {
-    //   label: "性别",
-    //   prop: "sex",
-    //   minWidth: 90,
-    //   cellRenderer: ({ row, props }) => (
-    //     <el-tag
-    //       size={props.size}
-    //       type={row.sex === 1 ? "danger" : null}
-    //       effect="plain"
-    //     >
-    //       {row.sex === 1 ? "女" : "男"}
-    //     </el-tag>
-    //   )
-    // },
+    {
+      label: "用户昵称",
+      prop: "nickname",
+      minWidth: 130
+    },
+    {
+      label: "性别",
+      prop: "sex",
+      minWidth: 90,
+      cellRenderer: ({ row, props }) => (
+        <el-tag
+          size={props.size}
+          type={row.sex === 1 ? "danger" : null}
+          effect="plain"
+        >
+          {row.sex === 1 ? "女" : "男"}
+        </el-tag>
+      )
+    },
     // {
     //   label: "部门",
     //   prop: "dept.name",
     //   minWidth: 90
     // },
-    // {
-    //   label: "手机号码",
-    //   prop: "phone",
-    //   minWidth: 90,
-    //   formatter: ({ phone }) => hideTextAtIndex(phone, { start: 3, end: 6 })
-    // },
+    {
+      label: "手机号码",
+      prop: "phone",
+      minWidth: 90,
+      formatter: ({ phone }) => hideTextAtIndex(phone, { start: 3, end: 6 })
+    },
     {
       label: "状态",
       prop: "status",
@@ -197,7 +197,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
       `确认要<strong>${
         row.status === 0 ? "停用" : "启用"
       }</strong><strong style='color:var(--el-color-primary)'>${
-        row.username
+        row.user_name
       }</strong>用户吗?`,
       "系统提示",
       {
@@ -327,7 +327,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
         formInline: {
           title,
           higherDeptOptions: formatHigherDeptOptions(higherDeptOptions.value),
-          parentId: row?.dept.id ?? 0,
+          // parentId: row?.dept.id ?? 0,
           nickname: row?.nickname ?? "",
           username: row?.username ?? "",
           password: row?.password ?? "",

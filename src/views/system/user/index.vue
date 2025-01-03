@@ -205,7 +205,7 @@ const {
                   :icon="useRenderIcon(More)"
                   @click="handleUpdate(row)"
                 />
-                <template #dropdown>
+                <template v-if="row.status" #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item>
                       <el-button
