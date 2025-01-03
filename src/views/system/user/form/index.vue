@@ -23,7 +23,7 @@ const props = withDefaults(defineProps<FormProps>(), {
 
 const sexOptions = [
   {
-    value: 0,
+    value: 2,
     label: "男"
   },
   {
