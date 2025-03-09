@@ -70,6 +70,7 @@ menus:
   pureUser: 用户管理
   pureRole: 角色管理
   pureSystemMenu: 菜单管理
+  pureSystemApi: API接口管理
   pureDept: 部门管理
   pureSysMonitor: 系统监控
   pureOnlineUser: 在线用户

@@ -70,6 +70,7 @@ menus:
   pureUser: User Manage
   pureRole: Role Manage
   pureSystemMenu: Menu Manage
+  pureSystemApi: API Manage
   pureDept: Dept Manage
   pureSysMonitor: System Monitor
   pureOnlineUser: Online User

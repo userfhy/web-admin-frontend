@@ -44,6 +44,15 @@ const systemManagementRouter = {
       }
     },
     {
+      path: "/system/api/index",
+      name: "SystemAPI",
+      meta: {
+        icon: "ep:list",
+        title: "menus.pureSystemApi",
+        roles: ["admin"]
+      }
+    },
+    {
       path: "/system/dept/index",
       name: "SystemDept",
       meta: {
