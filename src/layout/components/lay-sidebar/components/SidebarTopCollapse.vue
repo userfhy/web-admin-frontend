@@ -4,7 +4,7 @@ import MenuFold from "~icons/ri/menu-fold-fill";
 import MenuUnfold from "~icons/ri/menu-unfold-fill";
 
 interface Props {
-  isActive: boolean;
+  isActive?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
@@ -32,7 +32,7 @@ const toggleClick = () => {
   >
     <IconifyIconOffline
       :icon="isActive ? MenuFold : MenuUnfold"
-      class="inline-block align-middle hover:text-primary dark:hover:!text-white"
+      class="inline-block! align-middle hover:text-primary dark:hover:text-white!"
     />
   </div>
 </template>
