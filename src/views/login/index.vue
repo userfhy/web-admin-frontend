@@ -64,7 +64,7 @@ const onLogin = async (formEl: FormInstance | undefined) => {
     if (valid) {
       loading.value = true;
       useUserStoreHook()
-        .loginByUsername({ user_name: ruleForm.username, password: "admin123" })
+        .loginByUsername({ username: ruleForm.username, password: ruleForm.password })
         .then(res => {
           if (res.success) {
             // 获取后端路由
