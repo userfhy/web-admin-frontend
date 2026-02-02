@@ -15,7 +15,13 @@ import {
   logOutApi
 } from "@/api/user";
 import { useMultiTagsStoreHook } from "./multiTags";
-import { type DataInfo, setToken, removeToken, userKey } from "@/utils/auth";
+import {
+  type DataInfo,
+  setToken,
+  removeToken,
+  userKey,
+  getToken
+} from "@/utils/auth";
 
 export const useUserStore = defineStore("pure-user", {
   state: (): userType => ({
@@ -122,12 +128,48 @@ export const useUserStore = defineStore("pure-user", {
     async handRefreshToken(data) {
       return new Promise<RefreshTokenResult>((resolve, reject) => {
         refreshTokenApi(data)
-          .then(data => {
-            if (data.code === 0) {
-              setToken(data.data);
-              resolve(data);
+          .then((response: any) => {
+            // 处理标准格式：{ code: 0, data: { accessToken, refreshToken, expires } }
+            if (response && response.code === 0 && response.data) {
+              setToken(response.data);
+              resolve(response);
+            }
+            // 处理简单格式：{ refreshToken: "..." } 或 { accessToken: "...", refreshToken: "..." }
+            else if (response && (response as any).refreshToken) {
+              const currentToken = getToken();
+              if (currentToken) {
+                // 如果接口返回了新的 accessToken，使用新的；否则使用现有的
+                const accessTokenValue =
+                  (response as any).accessToken || currentToken.accessToken;
+                const refreshTokenValue = (response as any).refreshToken;
+                const tokenData: DataInfo<Date> = {
+                  accessToken: accessTokenValue,
+                  refreshToken: refreshTokenValue,
+                  expires: new Date(currentToken.expires)
+                };
+                setToken(tokenData);
+                // 构造符合 RefreshTokenResult 格式的响应
+                resolve({
+                  code: 0,
+                  message: "刷新成功",
+                  success: true,
+                  msg: "刷新成功",
+                  data: {
+                    accessToken: accessTokenValue,
+                    refreshToken: refreshTokenValue,
+                    expires: new Date(currentToken.expires)
+                  }
+                } as RefreshTokenResult);
+              } else {
+                reject("无法获取当前 token 信息");
+              }
+            }
+            // 处理其他可能的格式
+            else if (response && response.data && response.data.accessToken) {
+              setToken(response.data);
+              resolve(response as RefreshTokenResult);
             } else {
-              reject(data.message);
+              reject(response?.message || response?.msg || "刷新 token 失败");
             }
           })
           .catch(error => {
