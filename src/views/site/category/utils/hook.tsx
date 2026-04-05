@@ -5,12 +5,25 @@ import type { PaginationProps } from "@pureadmin/table";
 import { reactive, ref, onMounted, h, toRaw } from "vue";
 import { deviceDetection, isAllEmpty } from "@pureadmin/utils";
 import type { FormItemProps } from "./types";
+import { decodeHtmlEntities } from "@/utils/html";
 import {
   getSiteCategoryList,
   createSiteCategory,
   updateSiteCategory,
   deleteSiteCategory
 } from "@/api/siteCategory";
+
+function decodeText(value: unknown): string {
+  return decodeHtmlEntities(String(value ?? ""));
+}
+
+function normalizeCategoryRow(row: any) {
+  return {
+    ...row,
+    name: decodeText(row?.name),
+    description: decodeText(row?.description)
+  };
+}
 
 export function useSiteCategory() {
   const form = reactive({
@@ -59,7 +72,7 @@ export function useSiteCategory() {
 
       const res: any = await getSiteCategoryList(params);
       const data = res?.data ?? {};
-      dataList.value = data.list ?? [];
+      dataList.value = (data.list ?? []).map(normalizeCategoryRow);
       pagination.total = data.total ?? 0;
       pagination.currentPage = data.currentPage ?? pagination.currentPage;
       pagination.pageSize = data.pageSize ?? pagination.pageSize;
@@ -91,16 +104,18 @@ export function useSiteCategory() {
   }
 
   function openDialog(title = "新增", row?: any) {
+    const normalizedRow = row ? normalizeCategoryRow(row) : undefined;
+
     addDialog({
       title: `${title}类别`,
       props: {
         formInline: {
-          id: row?.id,
-          name: row?.name ?? "",
-          slug: row?.slug ?? "",
-          description: row?.description ?? "",
-          status: row?.status ?? 1,
-          sort: row?.sort ?? 0
+          id: normalizedRow?.id,
+          name: normalizedRow?.name ?? "",
+          slug: normalizedRow?.slug ?? "",
+          description: normalizedRow?.description ?? "",
+          status: normalizedRow?.status ?? 1,
+          sort: normalizedRow?.sort ?? 0
         }
       },
       width: "42%",

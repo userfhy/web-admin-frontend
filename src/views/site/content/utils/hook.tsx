@@ -6,6 +6,7 @@ import { reactive, ref, onMounted, h, toRaw } from "vue";
 import { deviceDetection, isAllEmpty } from "@pureadmin/utils";
 import { ElMessageBox } from "element-plus";
 import type { FormItemProps } from "./types";
+import { decodeHtmlEntities } from "@/utils/html";
 import { getSiteCategoryList } from "@/api/siteCategory";
 import { getSiteTagList } from "@/api/siteTag";
 import {
@@ -15,6 +16,26 @@ import {
   deleteSiteContent,
   updateSiteContentStatus
 } from "@/api/siteContent";
+
+function decodeText(value: unknown): string {
+  return decodeHtmlEntities(String(value ?? ""));
+}
+
+function normalizeContentRow(row: any) {
+  return {
+    ...row,
+    title: decodeText(row?.title),
+    summary: decodeText(row?.summary),
+    cover: decodeText(row?.cover),
+    content: decodeText(row?.content),
+    seoKeywords: decodeText(row?.seoKeywords),
+    seoDescription: decodeText(row?.seoDescription),
+    categoryNames: (row?.categoryNames ?? []).map((name: string) =>
+      decodeText(name)
+    ),
+    tagNames: (row?.tagNames ?? []).map((name: string) => decodeText(name))
+  };
+}
 
 export function useSiteContent() {
   const form = reactive({
@@ -120,7 +141,7 @@ export function useSiteContent() {
       }
       const res: any = await getSiteContentList(params);
       const data = res?.data ?? {};
-      dataList.value = data.list ?? [];
+      dataList.value = (data.list ?? []).map(normalizeContentRow);
       pagination.total = data.total ?? 0;
       pagination.currentPage = data.currentPage ?? pagination.currentPage;
       pagination.pageSize = data.pageSize ?? pagination.pageSize;
@@ -140,7 +161,11 @@ export function useSiteContent() {
         pageSize: 999,
         status: 1
       });
-      categoryOptions.value = res?.data?.list ?? [];
+      categoryOptions.value = (res?.data?.list ?? []).map((item: any) => ({
+        ...item,
+        name: decodeText(item?.name),
+        description: decodeText(item?.description)
+      }));
     } catch {
       categoryOptions.value = [];
     }
@@ -153,7 +178,10 @@ export function useSiteContent() {
         pageSize: 999,
         status: 1
       });
-      tagOptions.value = res?.data?.list ?? [];
+      tagOptions.value = (res?.data?.list ?? []).map((item: any) => ({
+        ...item,
+        name: decodeText(item?.name)
+      }));
     } catch {
       tagOptions.value = [];
     }
@@ -178,24 +206,26 @@ export function useSiteContent() {
   }
 
   function openDialog(title = "新增", row?: any) {
+    const normalizedRow = row ? normalizeContentRow(row) : undefined;
+
     addDialog({
       title: `${title}官网内容`,
       props: {
         formInline: {
-          id: row?.id,
+          id: normalizedRow?.id,
           categoryOptions: categoryOptions.value,
-          categoryIds: row?.categoryIds ?? [],
+          categoryIds: normalizedRow?.categoryIds ?? [],
           tagOptions: tagOptions.value,
-          tagIds: row?.tagIds ?? [],
-          title: row?.title ?? "",
-          slug: row?.slug ?? "",
-          summary: row?.summary ?? "",
-          cover: row?.cover ?? "",
-          content: row?.content ?? "",
-          seoKeywords: row?.seoKeywords ?? "",
-          seoDescription: row?.seoDescription ?? "",
-          status: row?.status ?? 1,
-          sort: row?.sort ?? 0
+          tagIds: normalizedRow?.tagIds ?? [],
+          title: normalizedRow?.title ?? "",
+          slug: normalizedRow?.slug ?? "",
+          summary: normalizedRow?.summary ?? "",
+          cover: normalizedRow?.cover ?? "",
+          content: normalizedRow?.content ?? "",
+          seoKeywords: normalizedRow?.seoKeywords ?? "",
+          seoDescription: normalizedRow?.seoDescription ?? "",
+          status: normalizedRow?.status ?? 1,
+          sort: normalizedRow?.sort ?? 0
         }
       },
       width: "62%",
