@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { useSiteContent } from "./utils/hook";
+import { useSiteTag } from "./utils/hook";
 import { PureTableBar } from "@/components/RePureTableBar";
 import { useRenderIcon } from "@/components/ReIcon/src/hooks";
 
@@ -10,7 +10,7 @@ import Refresh from "~icons/ep/refresh";
 import AddFill from "~icons/ri/add-circle-line";
 
 defineOptions({
-  name: "SiteContent"
+  name: "SiteTag"
 });
 
 const formRef = ref();
@@ -19,8 +19,6 @@ const tableRef = ref();
 const {
   form,
   loading,
-  categoryOptions,
-  tagOptions,
   columns,
   dataList,
   pagination,
@@ -30,7 +28,7 @@ const {
   handleCurrentChange,
   openDialog,
   handleDelete
-} = useSiteContent();
+} = useSiteTag();
 
 function onFullscreen() {
   tableRef.value.setAdaptive();
@@ -48,7 +46,7 @@ function onFullscreen() {
       <el-form-item label="关键词：" prop="keyword">
         <el-input
           v-model="form.keyword"
-          placeholder="按标题/Slug 搜索"
+          placeholder="按标签名/Slug 搜索"
           clearable
           class="w-[220px]!"
         />
@@ -60,38 +58,8 @@ function onFullscreen() {
           clearable
           class="w-[150px]!"
         >
-          <el-option label="已发布" :value="1" />
-          <el-option label="草稿" :value="0" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="类别：" prop="categoryId">
-        <el-select
-          v-model="form.categoryId"
-          placeholder="请选择类别"
-          clearable
-          class="w-[180px]!"
-        >
-          <el-option
-            v-for="item in categoryOptions"
-            :key="item.id"
-            :label="item.name"
-            :value="item.id"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="标签：" prop="tagId">
-        <el-select
-          v-model="form.tagId"
-          placeholder="请选择标签"
-          clearable
-          class="w-[180px]!"
-        >
-          <el-option
-            v-for="item in tagOptions"
-            :key="item.id"
-            :label="item.name"
-            :value="item.id"
-          />
+          <el-option label="启用" :value="1" />
+          <el-option label="停用" :value="0" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -110,7 +78,7 @@ function onFullscreen() {
     </el-form>
 
     <PureTableBar
-      title="官网内容管理"
+      title="标签管理"
       :columns="columns"
       :tableRef="tableRef?.getTableRef()"
       @refresh="onSearch"
@@ -122,7 +90,7 @@ function onFullscreen() {
           :icon="useRenderIcon(AddFill)"
           @click="openDialog()"
         >
-          新增内容
+          新增标签
         </el-button>
       </template>
 
@@ -159,7 +127,7 @@ function onFullscreen() {
               修改
             </el-button>
             <el-popconfirm
-              :title="`是否确认删除标题为${row.title}的这条数据`"
+              :title="`是否确认删除标签 ${row.name}`"
               @confirm="handleDelete(row)"
             >
               <template #reference>

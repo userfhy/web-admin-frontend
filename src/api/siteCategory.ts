@@ -7,6 +7,7 @@ export type SiteCategoryRow = {
   description: string;
   status: number;
   sort: number;
+  contentCount: number;
   createdAt: string;
   updatedAt: string;
 };

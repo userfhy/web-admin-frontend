@@ -6,13 +6,13 @@ import { reactive, ref, onMounted, h, toRaw } from "vue";
 import { deviceDetection, isAllEmpty } from "@pureadmin/utils";
 import type { FormItemProps } from "./types";
 import {
-  getSiteCategoryList,
-  createSiteCategory,
-  updateSiteCategory,
-  deleteSiteCategory
-} from "@/api/siteCategory";
+  getSiteTagList,
+  createSiteTag,
+  updateSiteTag,
+  deleteSiteTag
+} from "@/api/siteTag";
 
-export function useSiteCategory() {
+export function useSiteTag() {
   const form = reactive({
     keyword: "",
     status: "" as number | ""
@@ -28,7 +28,7 @@ export function useSiteCategory() {
   });
 
   const columns: TableColumnList = [
-    { label: "分类名称", prop: "name", minWidth: 180 },
+    { label: "标签名称", prop: "name", minWidth: 180 },
     { label: "Slug", prop: "slug", minWidth: 180 },
     {
       label: "状态",
@@ -42,7 +42,6 @@ export function useSiteCategory() {
     },
     { label: "内容数", prop: "contentCount", width: 90 },
     { label: "排序", prop: "sort", width: 80 },
-    { label: "描述", prop: "description", minWidth: 220 },
     { label: "更新时间", prop: "updatedAt", minWidth: 170 },
     { label: "操作", fixed: "right", width: 160, slot: "operation" }
   ];
@@ -57,7 +56,7 @@ export function useSiteCategory() {
       if (!isAllEmpty(form.keyword)) params.keyword = form.keyword;
       if (form.status !== "") params.status = form.status;
 
-      const res: any = await getSiteCategoryList(params);
+      const res: any = await getSiteTagList(params);
       const data = res?.data ?? {};
       dataList.value = data.list ?? [];
       pagination.total = data.total ?? 0;
@@ -66,7 +65,7 @@ export function useSiteCategory() {
     } catch {
       dataList.value = [];
       pagination.total = 0;
-      message("获取类别失败", { type: "error" });
+      message("获取标签失败", { type: "error" });
     } finally {
       loading.value = false;
     }
@@ -92,13 +91,12 @@ export function useSiteCategory() {
 
   function openDialog(title = "新增", row?: any) {
     addDialog({
-      title: `${title}类别`,
+      title: `${title}标签`,
       props: {
         formInline: {
           id: row?.id,
           name: row?.name ?? "",
           slug: row?.slug ?? "",
-          description: row?.description ?? "",
           status: row?.status ?? 1,
           sort: row?.sort ?? 0
         }
@@ -117,16 +115,15 @@ export function useSiteCategory() {
           const payload = {
             name: curData.name,
             slug: curData.slug,
-            description: curData.description,
             status: curData.status,
             sort: curData.sort
           };
           try {
             if (title === "新增") {
-              await createSiteCategory(payload);
+              await createSiteTag(payload);
               message("新增成功", { type: "success" });
             } else {
-              await updateSiteCategory(curData.id as number, payload);
+              await updateSiteTag(curData.id as number, payload);
               message("修改成功", { type: "success" });
             }
             done();
@@ -140,7 +137,7 @@ export function useSiteCategory() {
   }
 
   function handleDelete(row: any) {
-    deleteSiteCategory(row.id)
+    deleteSiteTag(row.id)
       .then(res => {
         if (res?.code !== 200) {
           message(res?.msg || "删除失败", { type: "error" });

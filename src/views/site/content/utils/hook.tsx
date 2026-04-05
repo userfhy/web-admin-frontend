@@ -4,24 +4,29 @@ import { addDialog } from "@/components/ReDialog";
 import type { PaginationProps } from "@pureadmin/table";
 import { reactive, ref, onMounted, h, toRaw } from "vue";
 import { deviceDetection, isAllEmpty } from "@pureadmin/utils";
+import { ElMessageBox } from "element-plus";
 import type { FormItemProps } from "./types";
 import { getSiteCategoryList } from "@/api/siteCategory";
+import { getSiteTagList } from "@/api/siteTag";
 import {
   getSiteContentList,
   createSiteContent,
   updateSiteContent,
-  deleteSiteContent
+  deleteSiteContent,
+  updateSiteContentStatus
 } from "@/api/siteContent";
 
 export function useSiteContent() {
   const form = reactive({
     keyword: "",
     status: "" as number | "",
-    categoryId: "" as number | ""
+    categoryId: "" as number | "",
+    tagId: "" as number | ""
   });
   const formRef = ref();
   const dataList = ref([]);
   const categoryOptions = ref<any[]>([]);
+  const tagOptions = ref<any[]>([]);
   const loading = ref(true);
   const pagination = reactive<PaginationProps>({
     total: 0,
@@ -48,14 +53,33 @@ export function useSiteContent() {
       formatter: ({ categoryNames }) => (categoryNames ?? []).join(", ")
     },
     {
+      label: "标签",
+      prop: "tagNames",
+      minWidth: 180,
+      formatter: ({ tagNames }) => (tagNames ?? []).join(", ")
+    },
+    {
       label: "状态",
       prop: "status",
-      minWidth: 90,
+      minWidth: 130,
       cellRenderer: ({ row, props }) => (
-        <el-tag size={props.size} type={row.status === 1 ? "success" : "info"}>
-          {row.status === 1 ? "已发布" : "草稿"}
-        </el-tag>
+        <el-switch
+          size={props.size === "small" ? "small" : "default"}
+          modelValue={row.status}
+          active-value={1}
+          inactive-value={0}
+          active-text="发布"
+          inactive-text="草稿"
+          inline-prompt
+          onChange={val => handleStatusChange(row, Number(val))}
+        />
       )
+    },
+    {
+      label: "发布时间",
+      prop: "publishedAt",
+      minWidth: 170,
+      formatter: ({ publishedAt }) => publishedAt || "-"
     },
     {
       label: "排序",
@@ -91,6 +115,9 @@ export function useSiteContent() {
       if (form.categoryId !== "") {
         params.categoryId = form.categoryId;
       }
+      if (form.tagId !== "") {
+        params.tagId = form.tagId;
+      }
       const res: any = await getSiteContentList(params);
       const data = res?.data ?? {};
       dataList.value = data.list ?? [];
@@ -116,6 +143,19 @@ export function useSiteContent() {
       categoryOptions.value = res?.data?.list ?? [];
     } catch {
       categoryOptions.value = [];
+    }
+  }
+
+  async function loadTagOptions() {
+    try {
+      const res: any = await getSiteTagList({
+        pageNum: 1,
+        pageSize: 999,
+        status: 1
+      });
+      tagOptions.value = res?.data?.list ?? [];
+    } catch {
+      tagOptions.value = [];
     }
   }
 
@@ -145,6 +185,8 @@ export function useSiteContent() {
           id: row?.id,
           categoryOptions: categoryOptions.value,
           categoryIds: row?.categoryIds ?? [],
+          tagOptions: tagOptions.value,
+          tagIds: row?.tagIds ?? [],
           title: row?.title ?? "",
           slug: row?.slug ?? "",
           summary: row?.summary ?? "",
@@ -171,6 +213,7 @@ export function useSiteContent() {
           const payload = {
             title: curData.title,
             categoryIds: curData.categoryIds ?? [],
+            tagIds: curData.tagIds ?? [],
             slug: curData.slug,
             summary: curData.summary,
             cover: curData.cover,
@@ -212,14 +255,33 @@ export function useSiteContent() {
       .catch(() => message("删除失败", { type: "error" }));
   }
 
+  function handleStatusChange(row: any, status: number) {
+    const text = status === 1 ? "发布" : "下线";
+    ElMessageBox.confirm(`确认要${text}《${row.title}》吗？`, "提示", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
+      draggable: true
+    })
+      .then(async () => {
+        await updateSiteContentStatus(row.id, { status });
+        message("状态更新成功", { type: "success" });
+        onSearch();
+      })
+      .catch(() => {
+        // no-op
+      });
+  }
+
   onMounted(() => {
-    Promise.all([loadCategoryOptions(), onSearch()]);
+    Promise.all([loadCategoryOptions(), loadTagOptions(), onSearch()]);
   });
 
   return {
     form,
     loading,
     categoryOptions,
+    tagOptions,
     columns,
     dataList,
     pagination,

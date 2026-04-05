@@ -9,6 +9,8 @@ const props = withDefaults(defineProps<FormProps>(), {
   formInline: () => ({
     categoryOptions: [],
     categoryIds: [],
+    tagOptions: [],
+    tagIds: [],
     title: "",
     slug: "",
     summary: "",
@@ -23,6 +25,19 @@ const props = withDefaults(defineProps<FormProps>(), {
 
 const ruleFormRef = ref();
 const newFormInline = ref(props.formInline);
+
+function fillSlugByTitle() {
+  const title = String(newFormInline.value.title || "")
+    .trim()
+    .toLowerCase();
+  if (!title) return;
+  const slug = title
+    .replace(/[^\w\u4e00-\u9fa5\s/-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^\/+|\/+$/g, "");
+  newFormInline.value.slug = slug;
+}
 
 function getRef() {
   return ruleFormRef.value;
@@ -54,7 +69,11 @@ defineExpose({ getRef });
             v-model="newFormInline.slug"
             clearable
             placeholder="例如：about-us/company"
-          />
+          >
+            <template #append>
+              <el-button @click="fillSlugByTitle">由标题生成</el-button>
+            </template>
+          </el-input>
         </el-form-item>
       </re-col>
 
@@ -91,6 +110,27 @@ defineExpose({ getRef });
           >
             <el-option
               v-for="item in newFormInline.categoryOptions"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+              :disabled="item.status === 0"
+            />
+          </el-select>
+        </el-form-item>
+      </re-col>
+      <re-col>
+        <el-form-item label="关联标签">
+          <el-select
+            v-model="newFormInline.tagIds"
+            class="w-full"
+            multiple
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="请选择标签"
+          >
+            <el-option
+              v-for="item in newFormInline.tagOptions"
               :key="item.id"
               :label="item.name"
               :value="item.id"

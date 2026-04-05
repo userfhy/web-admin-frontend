@@ -2,6 +2,8 @@ interface FormItemProps {
   id?: number;
   categoryOptions: Array<{ id: number; name: string; status: number }>;
   categoryIds: number[];
+  tagOptions: Array<{ id: number; name: string; status: number }>;
+  tagIds: number[];
   title: string;
   slug: string;
   summary: string;

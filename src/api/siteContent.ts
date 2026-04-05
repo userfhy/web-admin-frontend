@@ -4,6 +4,8 @@ export type SiteContentRow = {
   id: number;
   categoryIds: number[];
   categoryNames: string[];
+  tagIds: number[];
+  tagNames: string[];
   title: string;
   slug: string;
   summary: string;
@@ -12,6 +14,7 @@ export type SiteContentRow = {
   seoKeywords: string;
   seoDescription: string;
   status: number;
+  publishedAt: string;
   sort: number;
   createdAt: string;
   updatedAt: string;
@@ -30,6 +33,7 @@ export const getSiteContentList = (params: {
   keyword?: string;
   status?: number | "";
   categoryId?: number | "";
+  tagId?: number | "";
 }) => {
   return http.request<
     Result<{
@@ -47,6 +51,7 @@ export const getSiteContentDetail = (id: number | string) => {
 
 export const createSiteContent = (data: {
   categoryIds: number[];
+  tagIds: number[];
   title: string;
   slug: string;
   summary: string;
@@ -64,6 +69,7 @@ export const updateSiteContent = (
   id: number | string,
   data: {
     categoryIds: number[];
+    tagIds: number[];
     title: string;
     slug: string;
     summary: string;
@@ -80,4 +86,13 @@ export const updateSiteContent = (
 
 export const deleteSiteContent = (id: number | string) => {
   return http.request<Result>("delete", `/api/site-content/${id}`);
+};
+
+export const updateSiteContentStatus = (
+  id: number | string,
+  data: { status: number }
+) => {
+  return http.request<Result>("patch", `/api/site-content/${id}/status`, {
+    data
+  });
 };
