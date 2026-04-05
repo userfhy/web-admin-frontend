@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import demoData from "./dataTurbo.json";
-import "@logicflow/core/dist/style/index.css";
-import "@logicflow/extension/lib/style/index.css";
+import "@logicflow/core/dist/index.css";
+import "@logicflow/extension/dist/index.css";
 
 import LogicFlow from "@logicflow/core";
 import { ref, unref, onMounted } from "vue";

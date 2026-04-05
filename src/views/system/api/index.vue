@@ -46,6 +46,11 @@ const formRef = ref();
 const tableRef = ref();
 const contentRef = ref();
 const treeHeight = ref();
+const rowStyle = () => ({ height: "54px" });
+
+function handleMenu(_row: any) {
+  // Reserved for future API permission menu interaction.
+}
 
 const {
   form,

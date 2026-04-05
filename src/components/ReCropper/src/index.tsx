@@ -38,7 +38,7 @@ import {
   DownloadIcon
 } from "./svg";
 
-type Options = Cropper.Options;
+type Options = Record<string, any>;
 
 const defaultOptions: Options = {
   aspectRatio: 1,
@@ -85,7 +85,7 @@ export default defineComponent({
   setup(props, { attrs, emit }) {
     const tippyElRef = ref<ElRef<HTMLImageElement>>();
     const imgElRef = ref<ElRef<HTMLImageElement>>();
-    const cropper = ref<Nullable<Cropper>>();
+    const cropper = ref<Nullable<any>>();
     const inCircled = ref(props.circled);
     const isInClose = ref(props.isClose);
     const inSrc = ref(props.src);
@@ -163,7 +163,7 @@ export default defineComponent({
           debounceRealTimeCroppered();
         },
         ...props.options
-      });
+      } as any);
     }
 
     function realTimeCroppered() {

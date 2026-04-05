@@ -21,7 +21,8 @@ export function useApi(_treeRef: Ref) {
   const form = reactive({
     roleKey: "",
     path: "",
-    method: ""
+    method: "",
+    apiGroup: ""
   });
 
   const formRef = ref();

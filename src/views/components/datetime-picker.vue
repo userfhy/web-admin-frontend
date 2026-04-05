@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
+import type { Placement } from "@popperjs/core";
 
 defineOptions({
   name: "DateTimePicker"
@@ -68,7 +69,7 @@ const shortcuts1 = [
 
 const value3 = ref("");
 const datePickerRef = ref();
-const placement = ref("auto");
+const placement = ref<Placement>("auto");
 const checkTag = ref([
   {
     title: "auto", // https://popper.js.org/docs/v2/constructors/#options

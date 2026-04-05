@@ -76,44 +76,44 @@ class PureHttp {
         return whiteList.some(url => config.url.endsWith(url))
           ? config
           : new Promise(resolve => {
-            const data = getToken();
-            if (data) {
-              const now = new Date().getTime();
-              const expired = parseInt(data.expires) - now <= 0;
-              if (expired) {
-                if (!PureHttp.isRefreshing) {
-                  PureHttp.isRefreshing = true;
-                  // token过期刷新
-                  useUserStoreHook()
-                    .handRefreshToken({ refreshToken: data.refreshToken })
-                    .then(res => {
-                      const token = res.data.accessToken;
-                      config.headers["Authorization"] = formatToken(token);
-                      PureHttp.requests.forEach(cb => cb(token));
-                      PureHttp.requests = [];
-                    })
-                    .catch(_err => {
-                      PureHttp.requests = [];
-                      useUserStoreHook().logOut();
-                      message(transformI18n($t("login.pureLoginExpired")), {
-                        type: "warning"
+              const data = getToken();
+              if (data) {
+                const now = new Date().getTime();
+                const expired = parseInt(data.expires) - now <= 0;
+                if (expired) {
+                  if (!PureHttp.isRefreshing) {
+                    PureHttp.isRefreshing = true;
+                    // token过期刷新
+                    useUserStoreHook()
+                      .handRefreshToken({ refreshToken: data.refreshToken })
+                      .then(res => {
+                        const token = res.data.accessToken;
+                        config.headers["Authorization"] = formatToken(token);
+                        PureHttp.requests.forEach(cb => cb(token));
+                        PureHttp.requests = [];
+                      })
+                      .catch(_err => {
+                        PureHttp.requests = [];
+                        useUserStoreHook().logOut();
+                        message(transformI18n($t("login.pureLoginExpired")), {
+                          type: "warning"
+                        });
+                      })
+                      .finally(() => {
+                        PureHttp.isRefreshing = false;
                       });
-                    })
-                    .finally(() => {
-                      PureHttp.isRefreshing = false;
-                    });
+                  }
+                  resolve(PureHttp.retryOriginalRequest(config));
+                } else {
+                  config.headers["Authorization"] = formatToken(
+                    data.accessToken
+                  );
+                  resolve(config);
                 }
-                resolve(PureHttp.retryOriginalRequest(config));
               } else {
-                config.headers["Authorization"] = formatToken(
-                  data.accessToken
-                );
                 resolve(config);
               }
-            } else {
-              resolve(config);
-            }
-          });
+            });
       },
       error => {
         return Promise.reject(error);
@@ -153,11 +153,15 @@ class PureHttp {
         if (!$error.isCancelRequest) {
           let errorMsg = "请求失败，请稍后再试";
           if ($error.response && $error.response.data) {
+            const responseData = $error.response.data as Record<
+              string,
+              unknown
+            >;
             // 优先使用后端返回的 msg, message 或 error 字段
             errorMsg =
-              $error.response.data.msg ||
-              $error.response.data.message ||
-              $error.response.data.error ||
+              (responseData.msg as string) ||
+              (responseData.message as string) ||
+              (responseData.error as string) ||
               errorMsg;
           } else if ($error.message) {
             // 其次使用 axios 自身的 error.message (例如网络超时)

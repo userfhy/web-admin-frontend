@@ -46,7 +46,7 @@ const include = [
   "@howdyjs/mouse-menu",
   "@logicflow/extension",
   "vue-virtual-scroller",
-  "codemirror-editor-vue3",
+  "vue-codemirror6",
   "@amap/amap-jsapi-loader",
   "el-table-infinite-scroll",
   "vue-waterfall-plugin-next",
