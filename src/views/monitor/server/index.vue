@@ -40,6 +40,8 @@ const connectTimeoutTimer = ref<number | null>(null);
 const socketRef = ref<WebSocket | null>(null);
 const streamRetryMs = ref(3000);
 const reconnectAttempts = ref(0);
+const defaultVisibleHistoryMs = 4 * 60 * 60 * 1000;
+const maxClientHistoryMs = 24 * 60 * 60 * 1000;
 let disposed = false;
 let activeStreamSeq = 0;
 
@@ -127,6 +129,10 @@ const previewPinnedTip = ref<{
   dataIndex?: number;
   sampleTimestamp?: string;
 } | null>(null);
+const previewZoomRange = ref<{
+  startValue?: number;
+  endValue?: number;
+} | null>(null);
 let previewChartInstance: any = null;
 let previewRenderTimer: number | null = null;
 let previewChartClickLock = false;
@@ -140,6 +146,14 @@ const disks = computed(() => snapshot.value?.disks ?? []);
 const networks = computed(() => snapshot.value?.network ?? []);
 const goRuntime = computed(() => snapshot.value?.goRuntime);
 const history = computed(() => monitor.value?.history ?? []);
+const recentHistory = computed(() => {
+  if (!history.value.length) return [];
+  const cutoff = getHistoryCutoff(history.value, defaultVisibleHistoryMs);
+  const items = history.value.filter(
+    item => toSampleTime(item.timestamp) >= cutoff
+  );
+  return items.length ? items : history.value;
+});
 const primaryDisk = computed(() => disks.value[0]);
 const hostUsers = computed(() => host.value?.users ?? []);
 const totalNetErrors = computed(() =>
@@ -212,6 +226,39 @@ function formatUserStarted(value?: number) {
   return dayjs(timestamp).format("YYYY-MM-DD HH:mm:ss");
 }
 
+function toSampleTime(timestamp?: string) {
+  const value = dayjs(timestamp).valueOf();
+  return Number.isFinite(value) ? value : 0;
+}
+
+function getHistoryCutoff(
+  samples: ServerMonitorResult["history"],
+  durationMs: number
+) {
+  if (!samples.length) return 0;
+  const latest = toSampleTime(samples[samples.length - 1]?.timestamp);
+  return latest > 0 ? latest - durationMs : 0;
+}
+
+function trimHistorySamples(samples: ServerMonitorResult["history"]) {
+  if (!samples.length) return [];
+  const cutoff = getHistoryCutoff(samples, maxClientHistoryMs);
+  const items = samples.filter(item => toSampleTime(item.timestamp) >= cutoff);
+  return items.length ? items : samples;
+}
+
+function getDefaultPreviewZoomRange() {
+  if (!history.value.length) return null;
+  const cutoff = getHistoryCutoff(history.value, defaultVisibleHistoryMs);
+  const startValue = history.value.findIndex(
+    item => toSampleTime(item.timestamp) >= cutoff
+  );
+  return {
+    startValue: startValue >= 0 ? startValue : 0,
+    endValue: history.value.length - 1
+  };
+}
+
 function updateChartOption(
   key: ChartKey,
   option: Record<string, any>,
@@ -225,6 +272,7 @@ async function openChartPreview(key: ChartKey, title: string) {
   previewChartKey.value = key;
   previewChartTitle.value = title;
   previewPinnedTip.value = null;
+  previewZoomRange.value = getDefaultPreviewZoomRange();
   previewVisible.value = true;
   await nextTick();
   scheduleRenderPreviewChart(80);
@@ -238,6 +286,7 @@ function getPreviewChartOption() {
   const isPinned = Boolean(previewPinnedTip.value);
   const useTimeNavigator = isHistoryChart(key);
   const baseGrid = (option.grid ?? {}) as Record<string, any>;
+  const zoomRange = previewZoomRange.value ?? getDefaultPreviewZoomRange();
   return {
     ...option,
     grid: useTimeNavigator
@@ -285,7 +334,9 @@ function getPreviewChartOption() {
             },
             moveHandleSize: 0,
             showDetail: true,
-            brushSelect: false
+            brushSelect: false,
+            startValue: zoomRange?.startValue,
+            endValue: zoomRange?.endValue
           }
         ]
       : option.dataZoom
@@ -585,6 +636,17 @@ function bindPreviewChartEvents(instance: any) {
     if (event?.target) return;
     clearPreviewPinnedTip();
   });
+
+  instance.on("datazoom", () => {
+    const option = instance.getOption?.();
+    const zoom = Array.isArray(option?.dataZoom) ? option.dataZoom[0] : null;
+    if (!zoom) return;
+    previewZoomRange.value = {
+      startValue:
+        typeof zoom.startValue === "number" ? zoom.startValue : undefined,
+      endValue: typeof zoom.endValue === "number" ? zoom.endValue : undefined
+    };
+  });
 }
 
 function clearPreviewPinnedTip() {
@@ -692,6 +754,7 @@ function handlePreviewOpened() {
 function handlePreviewClosed() {
   previewChartClickLock = false;
   previewPinnedTip.value = null;
+  previewZoomRange.value = null;
   disposePreviewChart();
 }
 
@@ -706,7 +769,7 @@ function baseLineTrendOption(
   valueFormatter: (value: number) => string,
   yAxisFormatter: (value: number) => string
 ) {
-  const labels = history.value.map(item =>
+  const labels = recentHistory.value.map(item =>
     dayjs(item.timestamp).format("HH:mm:ss")
   );
   return {
@@ -764,7 +827,7 @@ function basePercentTrendOption(
   color: string,
   values: number[]
 ) {
-  const labels = history.value.map(item =>
+  const labels = recentHistory.value.map(item =>
     dayjs(item.timestamp).format("HH:mm:ss")
   );
   return {
@@ -800,12 +863,14 @@ function basePercentTrendOption(
 }
 
 function renderCharts() {
+  const visibleHistory = recentHistory.value;
+
   updateChartOption(
     "cpuTrend",
     basePercentTrendOption(
       "CPU",
       "#ef4444",
-      history.value.map(item => item.cpuUsage)
+      visibleHistory.map(item => item.cpuUsage)
     ),
     setCpuTrendOptions
   );
@@ -815,7 +880,7 @@ function renderCharts() {
     basePercentTrendOption(
       "Memory",
       "#2563eb",
-      history.value.map(item => item.memoryUsedPercent)
+      visibleHistory.map(item => item.memoryUsedPercent)
     ),
     setMemoryTrendOptions
   );
@@ -825,12 +890,12 @@ function renderCharts() {
     basePercentTrendOption(
       "Disk",
       "#f59e0b",
-      history.value.map(item => item.diskUsedPercent)
+      visibleHistory.map(item => item.diskUsedPercent)
     ),
     setDiskTrendOptions
   );
 
-  const labels = history.value.map(item =>
+  const labels = visibleHistory.map(item =>
     dayjs(item.timestamp).format("HH:mm:ss")
   );
 
@@ -860,7 +925,7 @@ function renderCharts() {
           showSymbol: false,
           areaStyle: { opacity: 0.08 },
           lineStyle: { width: 3 },
-          data: history.value.map(item => Number(item.load1.toFixed(2)))
+          data: visibleHistory.map(item => Number(item.load1.toFixed(2)))
         }
       ]
     },
@@ -872,7 +937,7 @@ function renderCharts() {
     basePercentTrendOption(
       "Swap",
       "#f97316",
-      history.value.map(item => item.swapUsedPercent)
+      visibleHistory.map(item => item.swapUsedPercent)
     ),
     setSwapTrendOptions
   );
@@ -882,7 +947,7 @@ function renderCharts() {
     baseLineTrendOption(
       "Goroutines",
       "#14b8a6",
-      history.value.map(item => item.goroutines),
+      visibleHistory.map(item => item.goroutines),
       value => formatInteger(Number(value ?? 0)),
       value => formatInteger(Number(value ?? 0))
     ),
@@ -894,7 +959,7 @@ function renderCharts() {
     baseLineTrendOption(
       "Heap",
       "#6366f1",
-      history.value.map(item => item.heapAlloc),
+      visibleHistory.map(item => item.heapAlloc),
       value => formatBytes(Number(value ?? 0)),
       value => formatBytes(Number(value ?? 0))
     ),
@@ -967,14 +1032,14 @@ function renderCharts() {
           type: "line" as const,
           smooth: true,
           showSymbol: false,
-          data: history.value.map(item => item.netBytesSent)
+          data: visibleHistory.map(item => item.netBytesSent)
         },
         {
           name: "Recv",
           type: "line" as const,
           smooth: true,
           showSymbol: false,
-          data: history.value.map(item => item.netBytesRecv)
+          data: visibleHistory.map(item => item.netBytesRecv)
         }
       ]
     },
@@ -1059,7 +1124,7 @@ function mergeAppendSample(sample?: ServerMonitorResult["history"][number]) {
           timestamp: sample.timestamp
         }
       : current.snapshot,
-    history: nextHistory.slice(-90)
+    history: trimHistorySamples(nextHistory)
   };
 }
 
