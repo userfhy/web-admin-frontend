@@ -11,6 +11,7 @@ import {
   deleteDictType,
   getAllDictTypes,
   getDictTypeList,
+  refreshDictTypeCache,
   updateDictType
 } from "@/api/dictType";
 import {
@@ -47,6 +48,7 @@ export function useDict() {
   const dataFormRef = ref();
   const typeLoading = ref(true);
   const dataLoading = ref(false);
+  const refreshCacheLoading = ref(false);
   const typeList = ref<DictTypeRow[]>([]);
   const dataList = ref<DictDataRow[]>([]);
   const currentDictType = ref<DictTypeRow>();
@@ -145,13 +147,13 @@ export function useDict() {
         type: pickText(typeSearchForm.type),
         status: typeSearchForm.status
       });
-      const page = res?.data ?? {};
-      const list = page.list ?? [];
+      const page = res?.data;
+      const list = page?.list ?? [];
       typeList.value = list;
-      typePagination.total = page.total ?? 0;
-      typePagination.pageSize = page.pageSize ?? typePagination.pageSize;
+      typePagination.total = page?.total ?? 0;
+      typePagination.pageSize = page?.pageSize ?? typePagination.pageSize;
       typePagination.currentPage =
-        page.currentPage ?? typePagination.currentPage;
+        page?.currentPage ?? typePagination.currentPage;
 
       if (list.length === 0) {
         currentDictType.value = undefined;
@@ -197,18 +199,39 @@ export function useDict() {
         label: pickText(dataSearchForm.label),
         status: dataSearchForm.status
       });
-      const page = res?.data ?? {};
-      dataList.value = page.list ?? [];
-      dataPagination.total = page.total ?? 0;
-      dataPagination.pageSize = page.pageSize ?? dataPagination.pageSize;
+      const page = res?.data;
+      dataList.value = page?.list ?? [];
+      dataPagination.total = page?.total ?? 0;
+      dataPagination.pageSize = page?.pageSize ?? dataPagination.pageSize;
       dataPagination.currentPage =
-        page.currentPage ?? dataPagination.currentPage;
+        page?.currentPage ?? dataPagination.currentPage;
     } catch {
       dataList.value = [];
       dataPagination.total = 0;
       message("获取字典数据失败", { type: "error" });
     } finally {
       dataLoading.value = false;
+    }
+  }
+
+  async function handleRefreshCache() {
+    refreshCacheLoading.value = true;
+    try {
+      const res = await refreshDictTypeCache();
+      if (res?.code !== 200) {
+        message(res?.msg || res?.message || "刷新缓存失败", {
+          type: "error"
+        });
+        return;
+      }
+      message(res?.msg || res?.message || "刷新缓存成功", {
+        type: "success"
+      });
+      await onTypeSearch(true);
+    } catch {
+      message("刷新缓存失败", { type: "error" });
+    } finally {
+      refreshCacheLoading.value = false;
     }
   }
 
@@ -418,6 +441,7 @@ export function useDict() {
     dataSearchForm,
     typeLoading,
     dataLoading,
+    refreshCacheLoading,
     typeList,
     dataList,
     currentDictType,
@@ -437,6 +461,7 @@ export function useDict() {
     openTypeDialog,
     openDataDialog,
     handleTypeDelete,
-    handleDataDelete
+    handleDataDelete,
+    handleRefreshCache
   };
 }

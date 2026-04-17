@@ -43,6 +43,14 @@ const {
           class="w-[180px]!"
         />
       </el-form-item>
+      <el-form-item label="IP" prop="ip">
+        <el-input
+          v-model="form.ip"
+          placeholder="请输入IP"
+          clearable
+          class="w-[180px]!"
+        />
+      </el-form-item>
       <el-form-item>
         <el-button
           type="primary"
@@ -58,11 +66,7 @@ const {
       </el-form-item>
     </el-form>
 
-    <PureTableBar
-      title="在线用户（仅演示，操作后不生效）"
-      :columns="columns"
-      @refresh="onSearch"
-    >
+    <PureTableBar title="在线用户" :columns="columns" @refresh="onSearch">
       <template v-slot="{ size, dynamicColumns }">
         <pure-table
           align-whole="center"
@@ -85,7 +89,7 @@ const {
         >
           <template #operation="{ row }">
             <el-popconfirm
-              :title="`是否强制下线${row.username}`"
+              :title="`是否强制下线 ${row.username}`"
               @confirm="handleOffline(row)"
             >
               <template #reference>
@@ -108,14 +112,6 @@ const {
 </template>
 
 <style lang="scss" scoped>
-:deep(.el-dropdown-menu__item i) {
-  margin: 0;
-}
-
-.main-content {
-  margin: 24px 24px 0 !important;
-}
-
 .search-form {
   :deep(.el-form-item) {
     margin-bottom: 12px;

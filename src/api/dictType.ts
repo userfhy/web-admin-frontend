@@ -61,6 +61,10 @@ export const getAllDictTypes = (params?: { status?: number }) => {
   );
 };
 
+export const refreshDictTypeCache = () => {
+  return http.request<Result>("post", baseUrlApi("dict/type/refresh-cache"));
+};
+
 export const createDictType = (data: {
   name: string;
   type: string;

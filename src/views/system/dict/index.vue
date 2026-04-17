@@ -23,6 +23,7 @@ const {
   dataSearchForm,
   typeLoading,
   dataLoading,
+  refreshCacheLoading,
   typeList,
   dataList,
   currentDictType,
@@ -42,7 +43,8 @@ const {
   openTypeDialog,
   openDataDialog,
   handleTypeDelete,
-  handleDataDelete
+  handleDataDelete,
+  handleRefreshCache
 } = useDict();
 
 const currentDictSummary = computed(() => {
@@ -121,6 +123,15 @@ function onDataFullscreen() {
         @fullscreen="onTypeFullscreen"
       >
         <template #buttons>
+          <el-button
+            type="primary"
+            plain
+            :icon="useRenderIcon(Refresh)"
+            :loading="refreshCacheLoading"
+            @click="handleRefreshCache"
+          >
+            刷新缓存
+          </el-button>
           <el-button
             type="primary"
             :icon="useRenderIcon(AddFill)"

@@ -58,6 +58,9 @@ const cpuTrendRef = ref();
 const memoryTrendRef = ref();
 const diskTrendRef = ref();
 const loadTrendRef = ref();
+const swapTrendRef = ref();
+const goroutineTrendRef = ref();
+const heapTrendRef = ref();
 const coreChartRef = ref();
 const networkChartRef = ref();
 
@@ -72,6 +75,15 @@ const { setOptions: setDiskTrendOptions } = useECharts(diskTrendRef, {
   theme: chartTheme
 });
 const { setOptions: setLoadTrendOptions } = useECharts(loadTrendRef, {
+  theme: chartTheme
+});
+const { setOptions: setSwapTrendOptions } = useECharts(swapTrendRef, {
+  theme: chartTheme
+});
+const { setOptions: setGoroutineTrendOptions } = useECharts(goroutineTrendRef, {
+  theme: chartTheme
+});
+const { setOptions: setHeapTrendOptions } = useECharts(heapTrendRef, {
   theme: chartTheme
 });
 const { setOptions: setCoreOptions } = useECharts(coreChartRef, {
@@ -90,6 +102,14 @@ const disks = computed(() => snapshot.value?.disks ?? []);
 const networks = computed(() => snapshot.value?.network ?? []);
 const goRuntime = computed(() => snapshot.value?.goRuntime);
 const history = computed(() => monitor.value?.history ?? []);
+const primaryDisk = computed(() => disks.value[0]);
+const hostUsers = computed(() => host.value?.users ?? []);
+const totalNetErrors = computed(() =>
+  networks.value.reduce((total, item) => total + item.errin + item.errout, 0)
+);
+const totalNetDrops = computed(() =>
+  networks.value.reduce((total, item) => total + item.dropin + item.dropout, 0)
+);
 const streamStatusText = computed(() => {
   switch (streamStatus.value) {
     case "connected":
@@ -129,6 +149,69 @@ function formatPercent(value?: number) {
 
 function formatNumber(value?: number) {
   return Number(value ?? 0).toFixed(2);
+}
+
+function formatInteger(value?: number) {
+  return Number(value ?? 0).toLocaleString();
+}
+
+function formatDuration(seconds?: number) {
+  const totalSeconds = Math.max(0, Math.floor(seconds ?? 0));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}天`);
+  if (hours > 0 || days > 0) parts.push(`${hours}小时`);
+  parts.push(`${minutes}分钟`);
+  return parts.join(" ");
+}
+
+function formatUserStarted(value?: number) {
+  if (!value) return "-";
+  const timestamp = value > 1e12 ? value : value * 1000;
+  return dayjs(timestamp).format("YYYY-MM-DD HH:mm:ss");
+}
+
+function baseLineTrendOption(
+  title: string,
+  color: string,
+  values: number[],
+  valueFormatter: (value: number) => string,
+  yAxisFormatter: (value: number) => string
+) {
+  const labels = history.value.map(item =>
+    dayjs(item.timestamp).format("HH:mm:ss")
+  );
+  return {
+    animation: false,
+    color: [color],
+    tooltip: {
+      trigger: "axis" as const,
+      valueFormatter
+    },
+    grid: { left: 55, right: 20, top: 36, bottom: 30 },
+    xAxis: { type: "category" as const, data: labels },
+    yAxis: {
+      type: "value" as const,
+      name: title,
+      axisLabel: {
+        formatter: yAxisFormatter
+      }
+    },
+    series: [
+      {
+        name: title,
+        type: "line" as const,
+        smooth: true,
+        showSymbol: false,
+        areaStyle: { opacity: 0.08 },
+        lineStyle: { width: 3 },
+        data: values
+      }
+    ]
+  };
 }
 
 function updateMonitor(data?: ServerMonitorResult | null) {
@@ -248,6 +331,34 @@ function renderCharts() {
       }
     ]
   });
+
+  setSwapTrendOptions(
+    basePercentTrendOption(
+      "Swap",
+      "#f97316",
+      history.value.map(item => item.swapUsedPercent)
+    )
+  );
+
+  setGoroutineTrendOptions(
+    baseLineTrendOption(
+      "Goroutines",
+      "#14b8a6",
+      history.value.map(item => item.goroutines),
+      value => formatInteger(Number(value ?? 0)),
+      value => formatInteger(Number(value ?? 0))
+    )
+  );
+
+  setHeapTrendOptions(
+    baseLineTrendOption(
+      "Heap",
+      "#6366f1",
+      history.value.map(item => item.heapAlloc),
+      value => formatBytes(Number(value ?? 0)),
+      value => formatBytes(Number(value ?? 0))
+    )
+  );
 
   setCoreOptions({
     animation: false,
@@ -568,9 +679,19 @@ onBeforeUnmount(() => {
             <component :is="useRenderIcon(HardDrive)" /> Disk
           </div>
         </template>
-        <div class="metric">{{ formatPercent(disks[0]?.usedPercent) }}</div>
-        <div class="sub">Used {{ formatBytes(disks[0]?.used) }}</div>
-        <div class="sub">Free {{ formatBytes(disks[0]?.free) }}</div>
+        <div class="metric">{{ formatPercent(primaryDisk?.usedPercent) }}</div>
+        <div class="sub">Used {{ formatBytes(primaryDisk?.used) }}</div>
+        <div class="sub">Free {{ formatBytes(primaryDisk?.free) }}</div>
+      </el-card>
+      <el-card shadow="never">
+        <template #header>
+          <div class="card-title">
+            <component :is="useRenderIcon(Database)" /> Swap
+          </div>
+        </template>
+        <div class="metric">{{ formatPercent(swap?.usedPercent) }}</div>
+        <div class="sub">Used {{ formatBytes(swap?.used) }}</div>
+        <div class="sub">Free {{ formatBytes(swap?.free) }}</div>
       </el-card>
       <el-card shadow="never">
         <template #header>
@@ -581,6 +702,18 @@ onBeforeUnmount(() => {
         <div class="metric">{{ goRuntime?.goroutines || 0 }}</div>
         <div class="sub">Goroutines</div>
         <div class="sub">Heap {{ formatBytes(goRuntime?.heapAlloc) }}</div>
+      </el-card>
+      <el-card shadow="never">
+        <template #header>
+          <div class="card-title">
+            <component :is="useRenderIcon(Global)" /> Host
+          </div>
+        </template>
+        <div class="metric">{{ formatDuration(host?.uptime) }}</div>
+        <div class="sub">Uptime</div>
+        <div class="sub">
+          Users {{ hostUsers.length }} / Proc {{ host?.processCount || 0 }}
+        </div>
       </el-card>
     </div>
 
@@ -605,8 +738,16 @@ onBeforeUnmount(() => {
             <strong>{{ host?.bootTime || "-" }}</strong>
           </div>
           <div>
+            <span>运行时长</span>
+            <strong>{{ formatDuration(host?.uptime) }}</strong>
+          </div>
+          <div>
             <span>进程数</span>
             <strong>{{ host?.processCount || 0 }}</strong>
+          </div>
+          <div>
+            <span>登录终端数</span>
+            <strong>{{ hostUsers.length }}</strong>
           </div>
           <div>
             <span>Load</span>
@@ -649,6 +790,71 @@ onBeforeUnmount(() => {
       </el-card>
     </div>
 
+    <div class="grid gap-4 xl:grid-cols-2 mb-4">
+      <el-card shadow="never">
+        <template #header><span>内存细分</span></template>
+        <div class="info-grid">
+          <div>
+            <span>总内存</span>
+            <strong>{{ formatBytes(memory?.total) }}</strong>
+          </div>
+          <div>
+            <span>已使用</span>
+            <strong>{{ formatBytes(memory?.used) }}</strong>
+          </div>
+          <div>
+            <span>空闲</span>
+            <strong>{{ formatBytes(memory?.free) }}</strong>
+          </div>
+          <div>
+            <span>可用</span>
+            <strong>{{ formatBytes(memory?.available) }}</strong>
+          </div>
+          <div>
+            <span>缓存</span>
+            <strong>{{ formatBytes(memory?.cached) }}</strong>
+          </div>
+          <div>
+            <span>缓冲区</span>
+            <strong>{{ formatBytes(memory?.buffers) }}</strong>
+          </div>
+        </div>
+      </el-card>
+      <el-card shadow="never">
+        <template #header><span>Go Runtime 详情</span></template>
+        <div class="info-grid">
+          <div>
+            <span>Goroutines</span>
+            <strong>{{ formatInteger(goRuntime?.goroutines) }}</strong>
+          </div>
+          <div>
+            <span>Heap Alloc</span>
+            <strong>{{ formatBytes(goRuntime?.heapAlloc) }}</strong>
+          </div>
+          <div>
+            <span>Heap Sys</span>
+            <strong>{{ formatBytes(goRuntime?.heapSys) }}</strong>
+          </div>
+          <div>
+            <span>Heap Idle</span>
+            <strong>{{ formatBytes(goRuntime?.heapIdle) }}</strong>
+          </div>
+          <div>
+            <span>Heap Inuse</span>
+            <strong>{{ formatBytes(goRuntime?.heapInuse) }}</strong>
+          </div>
+          <div>
+            <span>Stack Inuse</span>
+            <strong>{{ formatBytes(goRuntime?.stackInuse) }}</strong>
+          </div>
+          <div>
+            <span>GC 次数</span>
+            <strong>{{ formatInteger(goRuntime?.numGC) }}</strong>
+          </div>
+        </div>
+      </el-card>
+    </div>
+
     <div class="trend-grid mb-4">
       <el-card shadow="never">
         <template #header><span>CPU 趋势</span></template>
@@ -665,6 +871,18 @@ onBeforeUnmount(() => {
       <el-card shadow="never">
         <template #header><span>Load 趋势</span></template>
         <div ref="loadTrendRef" class="chart-box" />
+      </el-card>
+      <el-card shadow="never">
+        <template #header><span>Swap 趋势</span></template>
+        <div ref="swapTrendRef" class="chart-box" />
+      </el-card>
+      <el-card shadow="never">
+        <template #header><span>Goroutines 趋势</span></template>
+        <div ref="goroutineTrendRef" class="chart-box" />
+      </el-card>
+      <el-card shadow="never">
+        <template #header><span>Heap Alloc 趋势</span></template>
+        <div ref="heapTrendRef" class="chart-box" />
       </el-card>
     </div>
 
@@ -719,6 +937,91 @@ onBeforeUnmount(() => {
           <el-table-column prop="packetsRecv" label="收包" min-width="90" />
           <el-table-column prop="errout" label="发送错误" min-width="90" />
           <el-table-column prop="errin" label="接收错误" min-width="90" />
+          <el-table-column prop="dropout" label="发送丢包" min-width="90" />
+          <el-table-column prop="dropin" label="接收丢包" min-width="90" />
+        </el-table>
+      </el-card>
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-2 mt-4">
+      <el-card shadow="never">
+        <template #header><span>网络错误汇总</span></template>
+        <div class="info-grid">
+          <div>
+            <span>接口数量</span>
+            <strong>{{ networks.length }}</strong>
+          </div>
+          <div>
+            <span>累计发送流量</span>
+            <strong>{{ formatBytes(snapshot?.current?.netBytesSent) }}</strong>
+          </div>
+          <div>
+            <span>累计接收流量</span>
+            <strong>{{ formatBytes(snapshot?.current?.netBytesRecv) }}</strong>
+          </div>
+          <div>
+            <span>错误总数</span>
+            <strong>{{ formatInteger(totalNetErrors) }}</strong>
+          </div>
+          <div>
+            <span>丢包总数</span>
+            <strong>{{ formatInteger(totalNetDrops) }}</strong>
+          </div>
+        </div>
+      </el-card>
+      <el-card shadow="never">
+        <template #header><span>当前采样</span></template>
+        <div class="info-grid">
+          <div>
+            <span>CPU 使用率</span>
+            <strong>{{ formatPercent(snapshot?.current?.cpuUsage) }}</strong>
+          </div>
+          <div>
+            <span>内存使用率</span>
+            <strong>{{
+              formatPercent(snapshot?.current?.memoryUsedPercent)
+            }}</strong>
+          </div>
+          <div>
+            <span>Swap 使用率</span>
+            <strong>{{
+              formatPercent(snapshot?.current?.swapUsedPercent)
+            }}</strong>
+          </div>
+          <div>
+            <span>磁盘使用率</span>
+            <strong>{{
+              formatPercent(snapshot?.current?.diskUsedPercent)
+            }}</strong>
+          </div>
+          <div>
+            <span>Load1</span>
+            <strong>{{ formatNumber(snapshot?.current?.load1) }}</strong>
+          </div>
+          <div>
+            <span>Goroutines</span>
+            <strong>{{ formatInteger(snapshot?.current?.goroutines) }}</strong>
+          </div>
+          <div>
+            <span>Heap Alloc</span>
+            <strong>{{ formatBytes(snapshot?.current?.heapAlloc) }}</strong>
+          </div>
+        </div>
+      </el-card>
+    </div>
+
+    <div class="mt-4">
+      <el-card shadow="never">
+        <template #header><span>在线终端用户</span></template>
+        <el-table :data="hostUsers" size="small" stripe>
+          <el-table-column prop="user" label="用户" min-width="120" />
+          <el-table-column prop="terminal" label="终端" min-width="120" />
+          <el-table-column prop="host" label="来源" min-width="160" />
+          <el-table-column label="登录时间" min-width="180">
+            <template #default="{ row }">
+              {{ formatUserStarted(row.started) }}
+            </template>
+          </el-table-column>
         </el-table>
       </el-card>
     </div>

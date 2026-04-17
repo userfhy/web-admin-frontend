@@ -75,6 +75,7 @@ menus:
   pureDept: 部门管理
   pureSysMonitor: 系统监控
   pureOnlineUser: 在线用户
+  pureServerMonitor: 服务器监控
   pureLoginLog: 登录日志
   pureOperationLog: 操作日志
   pureSystemLog: 系统日志
