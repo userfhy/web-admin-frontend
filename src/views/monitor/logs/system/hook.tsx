@@ -2,21 +2,27 @@ import dayjs from "dayjs";
 import Detail from "./detail.vue";
 import { message } from "@/utils/message";
 import { addDialog } from "@/components/ReDialog";
+import { usePublicHooks } from "@/views/system/hooks";
 import type { PaginationProps } from "@pureadmin/table";
-import { type Ref, reactive, ref, onMounted, toRaw } from "vue";
+import { type Ref, reactive, ref, onMounted } from "vue";
 import { getKeyList, useCopyToClipboard } from "@pureadmin/utils";
-import { getSystemLogsList, getSystemLogsDetail } from "@/api/system";
+import {
+  deleteSystemLogs,
+  getSystemLogsDetail,
+  getSystemLogsList
+} from "@/api/system";
 import Info from "~icons/ri/question-line";
 
 export function useRole(tableRef: Ref) {
   const form = reactive({
     module: "",
-    requestTime: ""
+    requestTime: [] as string[]
   });
   const dataList = ref([]);
   const loading = ref(true);
   const selectedNum = ref(0);
   const { copied, update } = useCopyToClipboard();
+  const { tagStyle } = usePublicHooks();
 
   const pagination = reactive<PaginationProps>({
     total: 0,
@@ -25,32 +31,27 @@ export function useRole(tableRef: Ref) {
     background: true
   });
 
-  // const getLevelType = (type, text = false) => {
-  //   switch (type) {
-  //     case 0:
-  //       return text ? "debug" : "primary";
-  //     case 1:
-  //       return text ? "info" : "success";
-  //     case 2:
-  //       return text ? "warn" : "info";
-  //     case 3:
-  //       return text ? "error" : "warning";
-  //     case 4:
-  //       return text ? "fatal" : "danger";
-  //   }
-  // };
-
   const columns: TableColumnList = [
     {
-      label: "勾选列", // 如果需要表格多选，此处label必须设置
+      label: "勾选列",
       type: "selection",
       fixed: "left",
-      reserveSelection: true // 数据刷新后保留选项
+      reserveSelection: true
     },
     {
       label: "ID",
       prop: "id",
       minWidth: 90
+    },
+    {
+      label: "日志分类",
+      prop: "category",
+      minWidth: 100
+    },
+    {
+      label: "操作用户",
+      prop: "username",
+      minWidth: 120
     },
     {
       label: "所属模块",
@@ -71,43 +72,32 @@ export function useRole(tableRef: Ref) {
         </span>
       ),
       prop: "url",
-      minWidth: 140
+      minWidth: 200,
+      showOverflowTooltip: true
     },
     {
       label: "请求方法",
       prop: "method",
-      minWidth: 140
+      minWidth: 100
     },
     {
       label: "IP 地址",
       prop: "ip",
-      minWidth: 100
-    },
-    {
-      label: "地点",
-      prop: "address",
       minWidth: 140
     },
     {
-      label: "操作系统",
-      prop: "system",
-      minWidth: 100
+      label: "状态",
+      prop: "status",
+      minWidth: 100,
+      cellRenderer: ({ row, props }) => (
+        <el-tag
+          size={props.size}
+          style={tagStyle.value(row.status >= 200 && row.status < 400 ? 1 : 0)}
+        >
+          {row.status}
+        </el-tag>
+      )
     },
-    {
-      label: "浏览器类型",
-      prop: "browser",
-      minWidth: 100
-    },
-    // {
-    //   label: "级别",
-    //   prop: "level",
-    //   minWidth: 90,
-    //   cellRenderer: ({ row, props }) => (
-    //     <el-tag size={props.size} type={getLevelType(row.level)} effect="plain">
-    //       {getLevelType(row.level, true)}
-    //     </el-tag>
-    //   )
-    // },
     {
       label: "请求耗时",
       prop: "takesTime",
@@ -136,29 +126,38 @@ export function useRole(tableRef: Ref) {
     }
   ];
 
+  function buildParams() {
+    const [startTime, endTime] = form.requestTime || [];
+    return {
+      pageNum: pagination.currentPage,
+      pageSize: pagination.pageSize,
+      module: form.module || undefined,
+      startTime: startTime || undefined,
+      endTime: endTime || undefined
+    };
+  }
+
   function handleSizeChange(val: number) {
-    console.log(`${val} items per page`);
+    pagination.pageSize = val;
+    pagination.currentPage = 1;
+    onSearch();
   }
 
   function handleCurrentChange(val: number) {
-    console.log(`current page: ${val}`);
+    pagination.currentPage = val;
+    onSearch();
   }
 
-  /** 当CheckBox选择项发生变化时会触发该事件 */
   function handleSelectionChange(val) {
     selectedNum.value = val.length;
-    // 重置表格高度
     tableRef.value.setAdaptive();
   }
 
-  /** 取消选择 */
   function onSelectionCancel() {
     selectedNum.value = 0;
-    // 用于多选表格，清空用户的选择
     tableRef.value.getTableRef().clearSelection();
   }
 
-  /** 拷贝请求接口，表格单元格被双击时触发 */
   function handleCellDblclick({ url }, { property }) {
     if (property !== "url") return;
     update(url);
@@ -167,59 +166,59 @@ export function useRole(tableRef: Ref) {
       : message("拷贝失败", { type: "warning" });
   }
 
-  /** 批量删除 */
-  function onbatchDel() {
-    // 返回当前选中的行
+  async function onbatchDel() {
     const curSelected = tableRef.value.getTableRef().getSelectionRows();
-    // 接下来根据实际业务，通过选中行的某项数据，比如下面的id，调用接口进行批量删除
-    message(`已删除序号为 ${getKeyList(curSelected, "id")} 的数据`, {
-      type: "success"
-    });
-    tableRef.value.getTableRef().clearSelection();
-    onSearch();
+    const ids = getKeyList(curSelected, "id") as number[];
+    if (!ids.length) return;
+    const { code, msg } = await deleteSystemLogs(ids);
+    if (code === 200 || code === 0) {
+      message(msg || "删除成功", { type: "success" });
+      tableRef.value.getTableRef().clearSelection();
+      onSearch();
+    }
   }
 
-  /** 清空日志 */
-  function clearAll() {
-    // 根据实际业务，调用接口删除所有日志数据
-    message("已删除所有日志数据", {
-      type: "success"
-    });
-    onSearch();
+  async function clearAll() {
+    const { code, msg } = await deleteSystemLogs();
+    if (code === 200 || code === 0) {
+      message(msg || "已清空系统日志", { type: "success" });
+      onSearch();
+    }
   }
 
-  function onDetail(row) {
-    getSystemLogsDetail({ id: row.id }).then(res => {
-      addDialog({
-        title: "系统日志详情",
-        fullscreen: true,
-        hideFooter: true,
-        contentRenderer: () => Detail,
-        props: {
-          data: [res]
-        }
-      });
+  async function onDetail(row) {
+    const { code, data, msg } = await getSystemLogsDetail(row.id);
+    if ((code !== 200 && code !== 0) || !data) {
+      message(msg || "获取日志详情失败", { type: "error" });
+      return;
+    }
+    addDialog({
+      title: "系统日志详情",
+      fullscreen: true,
+      hideFooter: true,
+      contentRenderer: () => Detail,
+      props: {
+        data: [data]
+      }
     });
   }
 
   async function onSearch() {
     loading.value = true;
-    const { code, data } = await getSystemLogsList(toRaw(form));
-    if (code === 0) {
-      dataList.value = data.list;
-      pagination.total = data.total;
-      pagination.pageSize = data.pageSize;
-      pagination.currentPage = data.currentPage;
+    const { code, data } = await getSystemLogsList(buildParams());
+    if ((code === 200 || code === 0) && data) {
+      dataList.value = data.list || [];
+      pagination.total = data.total || 0;
+      pagination.pageSize = data.pageSize || pagination.pageSize;
+      pagination.currentPage = data.currentPage || pagination.currentPage;
     }
-
-    setTimeout(() => {
-      loading.value = false;
-    }, 500);
+    loading.value = false;
   }
 
   const resetForm = formEl => {
     if (!formEl) return;
     formEl.resetFields();
+    pagination.currentPage = 1;
     onSearch();
   };
 

@@ -48,6 +48,9 @@ class PureHttp {
   /** 保存当前`Axios`实例对象 */
   private static axiosInstance: AxiosInstance = Axios.create(defaultConfig);
 
+  /** 避免鉴权失效时重复执行登出 */
+  private static isUnauthorizedHandled = false;
+
   /** 重连原始请求 */
   private static retryOriginalRequest(config: PureHttpRequestConfig) {
     return new Promise(resolve => {
@@ -151,12 +154,25 @@ class PureHttp {
 
         // 统一的错误提示逻辑
         if (!$error.isCancelRequest) {
+          const responseData = ($error.response?.data ?? {}) as Record<
+            string,
+            unknown
+          >;
+          const responseCode = Number(responseData.code);
+          const shouldLogout =
+            $error.response?.status === 401 ||
+            [401, 20001, 20002, 20006].includes(responseCode);
+
+          if (shouldLogout && !PureHttp.isUnauthorizedHandled) {
+            PureHttp.isUnauthorizedHandled = true;
+            useUserStoreHook().logOut();
+            setTimeout(() => {
+              PureHttp.isUnauthorizedHandled = false;
+            }, 0);
+          }
+
           let errorMsg = "请求失败，请稍后再试";
           if ($error.response && $error.response.data) {
-            const responseData = $error.response.data as Record<
-              string,
-              unknown
-            >;
             // 优先使用后端返回的 msg, message 或 error 字段
             errorMsg =
               (responseData.msg as string) ||

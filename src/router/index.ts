@@ -25,6 +25,7 @@ import {
   formatTwoStageRoutes,
   formatFlatteningRoutes
 } from "./utils";
+import { getAsyncRoutes } from "@/api/routes";
 import {
   type Router,
   type RouteRecordRaw,
@@ -120,6 +121,12 @@ const whiteList = ["/login"];
 
 const { VITE_HIDE_HOME } = import.meta.env;
 
+function isUnauthorizedError(error: any) {
+  const status = Number(error?.response?.status);
+  const code = Number(error?.response?.data?.code);
+  return status === 401 || [401, 20001, 20002, 20006].includes(code);
+}
+
 router.beforeEach((to: ToRouteType, _from, next) => {
   to.meta.loaded = loadedPaths.has(to.path);
 
@@ -149,14 +156,17 @@ router.beforeEach((to: ToRouteType, _from, next) => {
   function toCorrectRoute() {
     whiteList.includes(to.fullPath) ? next(_from.fullPath) : next();
   }
-  if (Cookies.get(multipleTabsKey) && userInfo) {
+
+  function continueGuard() {
     // 无权限跳转403页面
     if (to.meta?.roles && !isOneOfArray(to.meta?.roles, userInfo?.roles)) {
       next({ path: "/error/403" });
+      return;
     }
     // 开启隐藏首页后在浏览器地址栏手动输入首页welcome路由则跳转到404页面
     if (VITE_HIDE_HOME === "true" && to.fullPath === "/welcome") {
       next({ path: "/error/404" });
+      return;
     }
     if (_from?.name) {
       // name为超链接
@@ -206,6 +216,25 @@ router.beforeEach((to: ToRouteType, _from, next) => {
       }
       toCorrectRoute();
     }
+  }
+
+  if (Cookies.get(multipleTabsKey) && userInfo) {
+    if (to.path === "/login") {
+      continueGuard();
+      return;
+    }
+
+    getAsyncRoutes()
+      .then(() => {
+        continueGuard();
+      })
+      .catch(error => {
+        if (isUnauthorizedError(error)) {
+          next({ path: "/login" });
+          return;
+        }
+        continueGuard();
+      });
   } else {
     if (to.path !== "/login") {
       if (whiteList.indexOf(to.path) !== -1) {

@@ -1,14 +1,16 @@
 import dayjs from "dayjs";
 import { message } from "@/utils/message";
-import { getOnlineLogsList } from "@/api/system";
+import { forceOfflineUser, getOnlineUserList } from "@/api/system";
 import { reactive, ref, onMounted, toRaw } from "vue";
 import type { PaginationProps } from "@pureadmin/table";
+import type { OnlineUserRow } from "@/api/system";
 
 export function useRole() {
   const form = reactive({
-    username: ""
+    username: "",
+    ip: ""
   });
-  const dataList = ref([]);
+  const dataList = ref<OnlineUserRow[]>([]);
   const loading = ref(true);
   const pagination = reactive<PaginationProps>({
     total: 0,
@@ -18,14 +20,19 @@ export function useRole() {
   });
   const columns: TableColumnList = [
     {
-      label: "序号",
-      prop: "id",
-      minWidth: 60
-    },
-    {
       label: "用户名",
       prop: "username",
-      minWidth: 100
+      minWidth: 120
+    },
+    {
+      label: "昵称",
+      prop: "nickname",
+      minWidth: 120
+    },
+    {
+      label: "角色",
+      prop: "roleName",
+      minWidth: 120
     },
     {
       label: "登录 IP",
@@ -33,69 +40,98 @@ export function useRole() {
       minWidth: 140
     },
     {
-      label: "登录地点",
-      prop: "address",
-      minWidth: 140
-    },
-    {
-      label: "操作系统",
-      prop: "system",
-      minWidth: 100
-    },
-    {
-      label: "浏览器类型",
+      label: "浏览器",
       prop: "browser",
+      minWidth: 110
+    },
+    {
+      label: "系统",
+      prop: "os",
       minWidth: 100
+    },
+    {
+      label: "最近活跃",
+      prop: "lastActiveAt",
+      minWidth: 180,
+      formatter: ({ lastActiveAt }) =>
+        lastActiveAt ? dayjs(lastActiveAt).format("YYYY-MM-DD HH:mm:ss") : "-"
     },
     {
       label: "登录时间",
-      prop: "loginTime",
+      prop: "loginAt",
       minWidth: 180,
-      formatter: ({ loginTime }) =>
-        dayjs(loginTime).format("YYYY-MM-DD HH:mm:ss")
+      formatter: ({ loginAt }) =>
+        loginAt ? dayjs(loginAt).format("YYYY-MM-DD HH:mm:ss") : "-"
+    },
+    {
+      label: "过期时间",
+      prop: "expiresAt",
+      minWidth: 180,
+      formatter: ({ expiresAt }) =>
+        expiresAt ? dayjs(expiresAt).format("YYYY-MM-DD HH:mm:ss") : "-"
     },
     {
       label: "操作",
       fixed: "right",
+      width: 120,
       slot: "operation"
     }
   ];
 
   function handleSizeChange(val: number) {
-    console.log(`${val} items per page`);
+    pagination.pageSize = val;
+    pagination.currentPage = 1;
+    onSearch();
   }
 
   function handleCurrentChange(val: number) {
-    console.log(`current page: ${val}`);
+    pagination.currentPage = val;
+    onSearch();
   }
 
-  function handleSelectionChange(val) {
-    console.log("handleSelectionChange", val);
-  }
+  function handleSelectionChange() {}
 
-  function handleOffline(row) {
-    message(`${row.username}已被强制下线`, { type: "success" });
+  async function handleOffline(row: OnlineUserRow) {
+    const res = await forceOfflineUser(row.userId);
+    if (res?.code !== 200) {
+      message(res?.msg || res?.message || "强制下线失败", { type: "error" });
+      return;
+    }
+    message(`${row.username} 已被强制下线`, { type: "success" });
     onSearch();
   }
 
   async function onSearch() {
     loading.value = true;
-    const { code, data } = await getOnlineLogsList(toRaw(form));
-    if (code === 0) {
-      dataList.value = data.list;
-      pagination.total = data.total;
-      pagination.pageSize = data.pageSize;
-      pagination.currentPage = data.currentPage;
-    }
-
-    setTimeout(() => {
+    try {
+      const {
+        code,
+        data,
+        msg,
+        message: errMessage
+      } = await getOnlineUserList({
+        pageNum: pagination.currentPage,
+        pageSize: pagination.pageSize,
+        username: toRaw(form).username || undefined,
+        ip: toRaw(form).ip || undefined
+      });
+      if (code !== 200) {
+        message(msg || errMessage || "获取在线用户失败", { type: "error" });
+        return;
+      }
+      dataList.value = data?.list ?? [];
+      pagination.total = data?.total ?? 0;
+      pagination.pageSize = data?.pageSize ?? pagination.pageSize;
+      pagination.currentPage = data?.currentPage ?? pagination.currentPage;
+    } finally {
       loading.value = false;
-    }, 500);
+    }
   }
 
   const resetForm = formEl => {
     if (!formEl) return;
     formEl.resetFields();
+    pagination.currentPage = 1;
     onSearch();
   };
 

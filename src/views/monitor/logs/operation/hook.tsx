@@ -1,16 +1,16 @@
 import dayjs from "dayjs";
 import { message } from "@/utils/message";
 import { getKeyList } from "@pureadmin/utils";
-import { getOperationLogsList } from "@/api/system";
+import { deleteOperationLogs, getOperationLogsList } from "@/api/system";
 import { usePublicHooks } from "@/views/system/hooks";
 import type { PaginationProps } from "@pureadmin/table";
-import { type Ref, reactive, ref, onMounted, toRaw } from "vue";
+import { type Ref, reactive, ref, onMounted } from "vue";
 
 export function useRole(tableRef: Ref) {
   const form = reactive({
     module: "",
     status: "",
-    operatingTime: ""
+    operatingTime: [] as string[]
   });
   const dataList = ref([]);
   const loading = ref(true);
@@ -25,10 +25,10 @@ export function useRole(tableRef: Ref) {
   });
   const columns: TableColumnList = [
     {
-      label: "勾选列", // 如果需要表格多选，此处label必须设置
+      label: "勾选列",
       type: "selection",
       fixed: "left",
-      reserveSelection: true // 数据刷新后保留选项
+      reserveSelection: true
     },
     {
       label: "序号",
@@ -38,37 +38,23 @@ export function useRole(tableRef: Ref) {
     {
       label: "操作人员",
       prop: "username",
-      minWidth: 100
+      minWidth: 120
     },
     {
       label: "所属模块",
       prop: "module",
-      minWidth: 140
+      minWidth: 120
     },
     {
       label: "操作概要",
       prop: "summary",
-      minWidth: 140
+      minWidth: 220,
+      showOverflowTooltip: true
     },
     {
       label: "操作 IP",
       prop: "ip",
-      minWidth: 100
-    },
-    {
-      label: "操作地点",
-      prop: "address",
-      minWidth: 140
-    },
-    {
-      label: "操作系统",
-      prop: "system",
-      minWidth: 100
-    },
-    {
-      label: "浏览器类型",
-      prop: "browser",
-      minWidth: 100
+      minWidth: 160
     },
     {
       label: "操作状态",
@@ -89,67 +75,75 @@ export function useRole(tableRef: Ref) {
     }
   ];
 
+  function buildParams() {
+    const [startTime, endTime] = form.operatingTime || [];
+    return {
+      pageNum: pagination.currentPage,
+      pageSize: pagination.pageSize,
+      module: form.module || undefined,
+      status: form.status || undefined,
+      startTime: startTime || undefined,
+      endTime: endTime || undefined
+    };
+  }
+
   function handleSizeChange(val: number) {
-    console.log(`${val} items per page`);
+    pagination.pageSize = val;
+    pagination.currentPage = 1;
+    onSearch();
   }
 
   function handleCurrentChange(val: number) {
-    console.log(`current page: ${val}`);
+    pagination.currentPage = val;
+    onSearch();
   }
 
-  /** 当CheckBox选择项发生变化时会触发该事件 */
   function handleSelectionChange(val) {
     selectedNum.value = val.length;
-    // 重置表格高度
     tableRef.value.setAdaptive();
   }
 
-  /** 取消选择 */
   function onSelectionCancel() {
     selectedNum.value = 0;
-    // 用于多选表格，清空用户的选择
     tableRef.value.getTableRef().clearSelection();
   }
 
-  /** 批量删除 */
-  function onbatchDel() {
-    // 返回当前选中的行
+  async function onbatchDel() {
     const curSelected = tableRef.value.getTableRef().getSelectionRows();
-    // 接下来根据实际业务，通过选中行的某项数据，比如下面的id，调用接口进行批量删除
-    message(`已删除序号为 ${getKeyList(curSelected, "id")} 的数据`, {
-      type: "success"
-    });
-    tableRef.value.getTableRef().clearSelection();
-    onSearch();
+    const ids = getKeyList(curSelected, "id") as number[];
+    if (!ids.length) return;
+    const { code, msg } = await deleteOperationLogs(ids);
+    if (code === 200 || code === 0) {
+      message(msg || "删除成功", { type: "success" });
+      tableRef.value.getTableRef().clearSelection();
+      onSearch();
+    }
   }
 
-  /** 清空日志 */
-  function clearAll() {
-    // 根据实际业务，调用接口删除所有日志数据
-    message("已删除所有日志数据", {
-      type: "success"
-    });
-    onSearch();
+  async function clearAll() {
+    const { code, msg } = await deleteOperationLogs();
+    if (code === 200 || code === 0) {
+      message(msg || "已清空操作日志", { type: "success" });
+      onSearch();
+    }
   }
 
   async function onSearch() {
     loading.value = true;
-    const { code, data } = await getOperationLogsList(toRaw(form));
-    if (code === 0) {
-      dataList.value = data.list;
-      pagination.total = data.total;
-      pagination.pageSize = data.pageSize;
-      pagination.currentPage = data.currentPage;
+    const { code, data } = await getOperationLogsList(buildParams());
+    if ((code === 200 || code === 0) && data) {
+      dataList.value = data.list || [];
+      pagination.total = data.total || 0;
+      pagination.pageSize = data.pageSize || pagination.pageSize;
+      pagination.currentPage = data.currentPage || pagination.currentPage;
     }
-
-    setTimeout(() => {
-      loading.value = false;
-    }, 500);
+    loading.value = false;
   }
 
   const resetForm = formEl => {
     if (!formEl) return;
     formEl.resetFields();
+    pagination.currentPage = 1;
     onSearch();
   };
 
