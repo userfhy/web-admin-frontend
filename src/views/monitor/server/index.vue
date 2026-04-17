@@ -5,7 +5,7 @@ import { useDark, useECharts } from "@pureadmin/utils";
 import { useRenderIcon } from "@/components/ReIcon/src/hooks";
 import { baseUrlApi } from "@/api/utils";
 import { getServerMonitor, type ServerMonitorResult } from "@/api/system";
-import { getToken, formatToken } from "@/utils/auth";
+import { getToken } from "@/utils/auth";
 
 import Refresh from "~icons/ep/refresh";
 import Monitor from "~icons/ri/pulse-line";
@@ -25,9 +25,8 @@ const streamStatus = ref<"connecting" | "connected" | "disconnected">(
   "connecting"
 );
 const reconnectTimer = ref<number | null>(null);
-const abortController = ref<AbortController | null>(null);
+const socketRef = ref<WebSocket | null>(null);
 const streamRetryMs = ref(3000);
-const lastEventId = ref<string | null>(null);
 let disposed = false;
 let activeStreamSeq = 0;
 
@@ -41,13 +40,18 @@ type ServerMonitorStreamData = {
   appendSample?: ServerMonitorResult["history"][number];
 };
 
-type ServerMonitorSsePayload = {
+type ServerMonitorStreamPayload = {
   code?: number;
   msg?: string;
   data?: ServerMonitorStreamData;
   meta?: {
     serverRetryMs?: number;
   };
+};
+
+type ServerMonitorWsMessage = {
+  event?: string;
+  data?: ServerMonitorStreamPayload;
 };
 
 const cpuTrendRef = ref();
@@ -89,11 +93,11 @@ const history = computed(() => monitor.value?.history ?? []);
 const streamStatusText = computed(() => {
   switch (streamStatus.value) {
     case "connected":
-      return "SSE 已连接";
+      return "WebSocket 已连接";
     case "connecting":
-      return "SSE 连接中";
+      return "WebSocket 连接中";
     default:
-      return "SSE 已断开";
+      return "WebSocket 已断开";
   }
 });
 const streamStatusType = computed(() => {
@@ -156,6 +160,7 @@ function basePercentTrendOption(
     dayjs(item.timestamp).format("HH:mm:ss")
   );
   return {
+    animation: false,
     color: [color],
     tooltip: {
       trigger: "axis" as const,
@@ -216,6 +221,7 @@ function renderCharts() {
   );
 
   setLoadTrendOptions({
+    animation: false,
     color: ["#10b981"],
     tooltip: {
       trigger: "axis" as const,
@@ -244,6 +250,7 @@ function renderCharts() {
   });
 
   setCoreOptions({
+    animation: false,
     tooltip: {
       trigger: "axis" as const,
       valueFormatter: (value: number) => `${Number(value ?? 0).toFixed(2)}%`
@@ -279,6 +286,7 @@ function renderCharts() {
   });
 
   setNetworkOptions({
+    animation: false,
     color: ["#8b5cf6", "#06b6d4"],
     tooltip: {
       trigger: "axis" as const,
@@ -317,8 +325,20 @@ function stopMonitorStream() {
     window.clearTimeout(reconnectTimer.value);
     reconnectTimer.value = null;
   }
-  abortController.value?.abort();
-  abortController.value = null;
+  if (socketRef.value) {
+    const currentSocket = socketRef.value;
+    socketRef.value = null;
+    currentSocket.onopen = null;
+    currentSocket.onmessage = null;
+    currentSocket.onerror = null;
+    currentSocket.onclose = null;
+    if (
+      currentSocket.readyState === WebSocket.OPEN ||
+      currentSocket.readyState === WebSocket.CONNECTING
+    ) {
+      currentSocket.close();
+    }
+  }
 }
 
 function scheduleReconnect() {
@@ -368,16 +388,11 @@ function mergeAppendSample(sample?: ServerMonitorResult["history"][number]) {
 
 function applyStreamPayload(
   eventName: string,
-  payload: ServerMonitorSsePayload
+  payload: ServerMonitorStreamPayload
 ) {
   const retryMs = payload?.data?.serverRetryMs ?? payload?.meta?.serverRetryMs;
   if (typeof retryMs === "number" && retryMs > 0) {
     streamRetryMs.value = retryMs;
-  }
-
-  const seq = payload?.data?.seq;
-  if (seq != null) {
-    lastEventId.value = String(seq);
   }
 
   if (eventName === "server_monitor_init" && payload?.data?.snapshot) {
@@ -404,12 +419,19 @@ function applyStreamPayload(
 
   if (eventName === "error") {
     streamStatus.value = "disconnected";
-    stopMonitorStream();
     scheduleReconnect();
   }
 }
 
-async function startMonitorStream() {
+function buildWebSocketUrl(token: string) {
+  const endpoint = baseUrlApi("sys/server-monitor/ws");
+  const url = new URL(endpoint, window.location.origin);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.searchParams.set("token", token);
+  return url.toString();
+}
+
+function startMonitorStream() {
   stopMonitorStream();
   streamStatus.value = "connecting";
   const token = getToken()?.accessToken;
@@ -419,107 +441,59 @@ async function startMonitorStream() {
   }
 
   const streamSeq = ++activeStreamSeq;
-  const controller = new AbortController();
-  abortController.value = controller;
+  const socket = new WebSocket(buildWebSocketUrl(token));
+  socketRef.value = socket;
 
-  try {
-    const response = await fetch(baseUrlApi("sys/server-monitor/stream"), {
-      method: "GET",
-      headers: {
-        Accept: "text/event-stream",
-        Authorization: formatToken(token),
-        ...(lastEventId.value ? { "Last-Event-ID": lastEventId.value } : {})
-      },
-      signal: controller.signal,
-      credentials: "include"
-    });
-
-    if (!response.ok || !response.body) {
-      throw new Error(`stream failed: ${response.status}`);
+  socket.onopen = () => {
+    if (
+      socketRef.value !== socket ||
+      disposed ||
+      streamSeq !== activeStreamSeq
+    ) {
+      socket.close();
+      return;
     }
-
     streamStatus.value = "connected";
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
+  };
 
-    while (!disposed && abortController.value === controller) {
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
-
-      let boundaryIndex = buffer.indexOf("\n\n");
-      while (boundaryIndex !== -1) {
-        const chunk = buffer.slice(0, boundaryIndex).trim();
-        buffer = buffer.slice(boundaryIndex + 2);
-        if (chunk) {
-          handleSseChunk(chunk);
-        }
-        boundaryIndex = buffer.indexOf("\n\n");
-      }
-    }
-
-    const tail = decoder.decode();
-    if (tail) {
-      buffer += tail.replace(/\r\n/g, "\n");
-    }
-    const finalChunk = buffer.trim();
-    if (finalChunk) {
-      handleSseChunk(finalChunk);
-    }
-
+  socket.onmessage = event => {
     if (
-      !disposed &&
-      abortController.value === controller &&
-      streamSeq === activeStreamSeq
+      socketRef.value !== socket ||
+      disposed ||
+      streamSeq !== activeStreamSeq
     ) {
+      return;
+    }
+    handleWebSocketMessage(event.data);
+  };
+
+  socket.onerror = () => {
+    if (
+      socketRef.value !== socket ||
+      disposed ||
+      streamSeq !== activeStreamSeq
+    ) {
+      return;
+    }
+    streamStatus.value = "disconnected";
+    socket.close();
+  };
+
+  socket.onclose = () => {
+    if (socketRef.value === socket) {
+      socketRef.value = null;
+    }
+    if (!disposed && streamSeq === activeStreamSeq) {
       streamStatus.value = "disconnected";
       scheduleReconnect();
     }
-  } catch (_error) {
-    if (
-      !disposed &&
-      abortController.value === controller &&
-      streamSeq === activeStreamSeq
-    ) {
-      streamStatus.value = "disconnected";
-      scheduleReconnect();
-    }
-  }
+  };
 }
 
-function handleSseChunk(chunk: string) {
-  const lines = chunk.split("\n");
-  let eventName = "message";
-  const dataLines: string[] = [];
-
-  lines.forEach(line => {
-    if (line.startsWith(":")) return;
-    if (line.startsWith("id:")) {
-      lastEventId.value = line.slice(3).trim();
-      return;
-    }
-    if (line.startsWith("retry:")) {
-      const retryMs = Number(line.slice(6).trim());
-      if (Number.isFinite(retryMs) && retryMs > 0) {
-        streamRetryMs.value = retryMs;
-      }
-      return;
-    }
-    if (line.startsWith("event:")) {
-      eventName = line.slice(6).trim();
-      return;
-    }
-    if (line.startsWith("data:")) {
-      dataLines.push(line.slice(5).trim());
-    }
-  });
-
-  if (!dataLines.length) return;
-
-  const payload = JSON.parse(dataLines.join("\n")) as ServerMonitorSsePayload;
-  applyStreamPayload(eventName, payload);
+function handleWebSocketMessage(raw: string) {
+  const message = JSON.parse(raw) as ServerMonitorWsMessage;
+  if (!message?.event || !message.data) return;
+  applyStreamPayload(message.event, message.data);
 }
 
 async function manualRefresh() {

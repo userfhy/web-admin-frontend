@@ -29,6 +29,7 @@ export default ({ mode }: ConfigEnv): UserConfigExport => {
           // 这里填写后端地址
           target: "http://localhost:8081/v1/api",
           changeOrigin: true,
+          ws: true,
           rewrite: path => path.replace(/^\/api/, "")
         }
       },
