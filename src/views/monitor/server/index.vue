@@ -45,6 +45,12 @@ const maxClientHistoryMs = 24 * 60 * 60 * 1000;
 let disposed = false;
 let activeStreamSeq = 0;
 
+const timeRangeOptions = [
+  { label: "最近1小时", value: 1 * 60 * 60 * 1000 },
+  { label: "最近4小时", value: 4 * 60 * 60 * 1000 },
+  { label: "最近24小时", value: 24 * 60 * 60 * 1000 }
+];
+
 type ServerMonitorStreamData = {
   seq?: number;
   mode?: "init" | "append";
@@ -133,6 +139,7 @@ const previewZoomRange = ref<{
   startValue?: number;
   endValue?: number;
 } | null>(null);
+const selectedTimeRangeMs = ref<number>(defaultVisibleHistoryMs);
 let previewChartInstance: any = null;
 let previewRenderTimer: number | null = null;
 let previewChartClickLock = false;
@@ -148,7 +155,7 @@ const goRuntime = computed(() => snapshot.value?.goRuntime);
 const history = computed(() => monitor.value?.history ?? []);
 const recentHistory = computed(() => {
   if (!history.value.length) return [];
-  const cutoff = getHistoryCutoff(history.value, defaultVisibleHistoryMs);
+  const cutoff = getHistoryCutoff(history.value, selectedTimeRangeMs.value);
   const items = history.value.filter(
     item => toSampleTime(item.timestamp) >= cutoff
   );
@@ -249,7 +256,7 @@ function trimHistorySamples(samples: ServerMonitorResult["history"]) {
 
 function getDefaultPreviewZoomRange() {
   if (!history.value.length) return null;
-  const cutoff = getHistoryCutoff(history.value, defaultVisibleHistoryMs);
+  const cutoff = getHistoryCutoff(history.value, selectedTimeRangeMs.value);
   const startValue = history.value.findIndex(
     item => toSampleTime(item.timestamp) >= cutoff
   );
@@ -756,6 +763,14 @@ function handlePreviewClosed() {
   previewPinnedTip.value = null;
   previewZoomRange.value = null;
   disposePreviewChart();
+}
+
+function handleTimeRangeChange(value: number) {
+  selectedTimeRangeMs.value = value;
+  previewZoomRange.value = getDefaultPreviewZoomRange();
+  nextTick(() => {
+    renderCharts();
+  });
 }
 
 function resizePreviewChart() {
@@ -1345,6 +1360,14 @@ onBeforeUnmount(() => {
       </el-button>
     </div>
 
+    <div class="mb-4 monitor-toolbar">
+      <el-segmented
+        :model-value="selectedTimeRangeMs"
+        :options="timeRangeOptions"
+        @change="handleTimeRangeChange"
+      />
+    </div>
+
     <div class="grid-cards mb-4">
       <el-card shadow="never">
         <template #header>
@@ -1882,6 +1905,11 @@ onBeforeUnmount(() => {
     gap: 10px;
     align-items: center;
     margin-bottom: 4px;
+  }
+
+  .monitor-toolbar {
+    display: flex;
+    justify-content: flex-end;
   }
 
   .grid-cards {
