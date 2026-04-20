@@ -7,21 +7,17 @@ import { storageLocal, isObject } from "@pureadmin/utils";
 // element-plus国际化
 import enLocale from "element-plus/es/locale/lang/en";
 import zhLocale from "element-plus/es/locale/lang/zh-cn";
+import enYaml from "/locales/en.yaml";
+import zhCnYaml from "/locales/zh-CN.yaml";
 
-const siphonI18n = (function () {
-  // 仅初始化一次国际化配置
-  const cache = Object.fromEntries(
-    Object.entries(
-      import.meta.glob("../../locales/*.y(a)?ml", { eager: true })
-    ).map(([key, value]: any) => {
-      const matched = key.match(/([A-Za-z0-9-_]+)\./i)[1];
-      return [matched, value.default];
-    })
-  );
-  return (prefix = "zh-CN") => {
-    return cache[prefix];
-  };
-})();
+const localeMap = {
+  "zh-CN": zhCnYaml,
+  en: enYaml
+};
+
+const siphonI18n = (prefix = "zh-CN") => {
+  return localeMap[prefix];
+};
 
 export const localesConfigs = {
   zh: {
@@ -50,7 +46,7 @@ function getObjectKeys(obj) {
       if (obj[k] && isObject(obj[k])) {
         stack.push({ obj: obj[k], key: newKey });
       } else {
-        keys.add(key);
+        keys.add(newKey);
       }
     }
   }
@@ -89,10 +85,10 @@ export function transformI18n(message: any = "") {
   const key = message.match(/(\S*)\./)?.input;
 
   if (key && flatI18n("zh-CN").has(key)) {
-    return i18n.global.t.call(i18n.global.locale, message);
+    return i18n.global.t(message);
   } else if (!key && Object.hasOwn(siphonI18n("zh-CN"), message)) {
     // 兼容非嵌套形式的国际化写法
-    return i18n.global.t.call(i18n.global.locale, message);
+    return i18n.global.t(message);
   } else {
     return message;
   }
