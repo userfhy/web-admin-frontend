@@ -1,6 +1,6 @@
 // 多组件库的国际化和本地项目国际化兼容
 import { type I18n, createI18n } from "vue-i18n";
-import type { App, WritableComputedRef } from "vue";
+import { unref, type App, type WritableComputedRef } from "vue";
 import { responsiveStorageNameSpace } from "@/config";
 import { storageLocal, isObject } from "@pureadmin/utils";
 
@@ -82,16 +82,32 @@ export function transformI18n(message: any = "") {
     return message[locale?.value];
   }
 
-  const key = message.match(/(\S*)\./)?.input;
-
-  if (key && flatI18n("zh-CN").has(key)) {
-    return i18n.global.t(message);
-  } else if (!key && Object.hasOwn(siphonI18n("zh-CN"), message)) {
-    // 兼容非嵌套形式的国际化写法
-    return i18n.global.t(message);
-  } else {
+  if (typeof message !== "string") {
     return message;
   }
+
+  const locale = unref(i18n.global.locale);
+  const fallbackLocale = i18n.global.fallbackLocale;
+  const fallback =
+    typeof fallbackLocale === "string"
+      ? fallbackLocale
+      : Array.isArray(fallbackLocale)
+        ? fallbackLocale[0]
+        : "en";
+
+  if (i18n.global.te(message, locale) || i18n.global.te(message, fallback)) {
+    return i18n.global.t(message);
+  }
+
+  // 兼容开发时直接传入未嵌套的 key
+  if (
+    flatI18n("zh-CN").has(message) ||
+    Object.hasOwn(siphonI18n("zh-CN"), message)
+  ) {
+    return i18n.global.t(message);
+  }
+
+  return message;
 }
 
 /** 此函数只是配合i18n Ally插件来进行国际化智能提示，并无实际意义（只对提示起作用），如果不需要国际化可删除 */
