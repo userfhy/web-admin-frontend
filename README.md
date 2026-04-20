@@ -127,9 +127,22 @@ pnpm dev
 
 ### 项目打包
 
+默认构建保持原有配置（根路径 `/`，接口前缀 `/api`）：
+
 ```bash
 pnpm build
 ```
+
+Go 静态嵌入构建使用独立的 `go-static` 模式（发布路径 `/admin/`，接口前缀 `/v1/api`）：
+
+```bash
+pnpm run build:go
+```
+
+对应配置文件：
+
+- 默认构建：`.env.production`
+- Go 静态嵌入构建：`.env.go-static`
 
 ## Docker 支持
 

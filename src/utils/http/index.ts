@@ -15,6 +15,14 @@ import { $t, transformI18n } from "@/plugins/i18n";
 import { getToken, formatToken } from "@/utils/auth";
 import { useUserStoreHook } from "@/store/modules/user";
 
+const apiBase = (import.meta.env.VITE_API_BASE || "/api").replace(/\/$/, "");
+
+function resolveApiUrl(url?: string) {
+  if (!url || !url.startsWith("/api")) return url;
+  if (apiBase === "/api") return url;
+  return url.replace(/^\/api/, apiBase);
+}
+
 // 相关配置请参考：www.axios-js.com/zh-cn/docs/#axios-request-config-1
 const defaultConfig: AxiosRequestConfig = {
   // 请求超时时间
@@ -74,6 +82,8 @@ class PureHttp {
           PureHttp.initConfig.beforeRequestCallback(config);
           return config;
         }
+        config.url = resolveApiUrl(config.url);
+
         /** 请求白名单，放置一些不需要`token`的接口（通过设置请求白名单，防止`token`过期后再请求造成的死循环问题） */
         const whiteList = ["/refresh_token", "/login"];
         return whiteList.some(url => config.url.endsWith(url))
