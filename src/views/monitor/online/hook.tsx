@@ -92,7 +92,11 @@ export function useRole() {
   function handleSelectionChange() {}
 
   async function handleOffline(row: OnlineUserRow) {
-    const res = await forceOfflineUser(row.userId);
+    if (!row.sessionId) {
+      message("当前会话缺少 sessionId，无法强制下线", { type: "error" });
+      return;
+    }
+    const res = await forceOfflineUser(row.userId, row.sessionId);
     if (res?.code !== 200) {
       message(res?.msg || res?.message || "强制下线失败", { type: "error" });
       return;

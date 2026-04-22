@@ -23,6 +23,7 @@ type ResultTable<T = any> = {
 };
 
 export type OnlineUserRow = {
+  sessionId: string;
   userId: number;
   username: string;
   nickname?: string;
@@ -237,10 +238,16 @@ export const getOnlineUserList = (params: OnlineUserListParams) => {
   );
 };
 
-export const forceOfflineUser = (userId: number | string) => {
+export const forceOfflineUser = (
+  userId: number | string,
+  sessionId: string
+) => {
   return http.request<Result>(
     "delete",
-    baseUrlApi(`sys/online-users/${userId}`)
+    baseUrlApi(`sys/online-users/${userId}`),
+    {
+      params: { sessionId }
+    }
   );
 };
 
