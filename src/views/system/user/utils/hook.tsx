@@ -11,13 +11,24 @@ import type { PaginationProps } from "@pureadmin/table";
 import ReCropperPreview from "@/components/ReCropperPreview";
 import type { FormItemProps, RoleFormItemProps } from "../utils/types";
 import { getKeyList, isAllEmpty, deviceDetection } from "@pureadmin/utils";
-import { getRoleIds, getUserList, getAllRoleList } from "@/api/system";
+import {
+  getRoleIds,
+  getUserList,
+  unlockUser,
+  getAllRoleList,
+  resetUserPassword,
+  getUserSecurityTimeline
+} from "@/api/system";
+import type { UserSecurityEvent } from "@/api/system";
 import { getDeptTree } from "@/api/dept";
 import {
   ElForm,
   ElInput,
   ElFormItem,
   ElProgress,
+  ElTimeline,
+  ElTimelineItem,
+  ElPagination,
   ElMessageBox
 } from "element-plus";
 import {
@@ -152,6 +163,27 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
       //   dayjs(createTime).format("YYYY-MM-DD HH:mm:ss")
     },
     {
+      label: "登录安全",
+      minWidth: 180,
+      cellRenderer: ({ row }) => (
+        <div class="flex flex-col items-center gap-1">
+          <el-tag type={isLocked(row) ? "danger" : "success"} effect="plain">
+            {isLocked(row) ? "已锁定" : "正常"}
+          </el-tag>
+          {row.locked_until ? (
+            <span class="text-xs text-[var(--el-text-color-secondary)]">
+              解锁：{row.locked_until}
+            </span>
+          ) : null}
+          {row.failed_login_count ? (
+            <span class="text-xs text-[var(--el-text-color-secondary)]">
+              失败：{row.failed_login_count} 次
+            </span>
+          ) : null}
+        </div>
+      )
+    },
+    {
       label: "操作",
       fixed: "right",
       width: 180,
@@ -169,7 +201,8 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   });
   // 重置的新密码
   const pwdForm = reactive({
-    newPwd: ""
+    newPwd: "",
+    confirmPwd: ""
   });
   const pwdProgress = [
     { color: "#e74242", text: "非常弱" },
@@ -181,6 +214,27 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   // 当前密码强度（0-4）
   const curScore = ref();
   const roleOptions = ref([]);
+  const securityTimeline = reactive({
+    loading: false,
+    list: [] as UserSecurityEvent[],
+    total: 0,
+    pageNum: 1,
+    pageSize: 5
+  });
+
+  function userDisplayName(row) {
+    return row?.username || row?.user_name || row?.nickname || row?.id;
+  }
+
+  function isLocked(row) {
+    if (!row?.locked_until) return false;
+    return new Date(row.locked_until).getTime() > Date.now();
+  }
+
+  function resetPwdForm() {
+    pwdForm.newPwd = "";
+    pwdForm.confirmPwd = "";
+  }
 
   function onChange({ row, index }) {
     ElMessageBox.confirm(
@@ -405,7 +459,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   /** 重置密码 */
   function handleReset(row) {
     addDialog({
-      title: `重置 ${row.username} 用户的密码`,
+      title: `重置 ${userDisplayName(row)} 用户的密码`,
       width: "30%",
       draggable: true,
       closeOnClickModal: false,
@@ -429,6 +483,34 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
                 type="password"
                 v-model={pwdForm.newPwd}
                 placeholder="请输入新密码"
+              />
+            </ElFormItem>
+            <ElFormItem
+              prop="confirmPwd"
+              rules={[
+                {
+                  required: true,
+                  message: "请再次输入新密码",
+                  trigger: "blur"
+                },
+                {
+                  validator: (_rule, value, callback) => {
+                    if (value !== pwdForm.newPwd) {
+                      callback(new Error("两次输入的密码不一致"));
+                      return;
+                    }
+                    callback();
+                  },
+                  trigger: "blur"
+                }
+              ]}
+            >
+              <ElInput
+                clearable
+                show-password
+                type="password"
+                v-model={pwdForm.confirmPwd}
+                placeholder="请再次输入新密码"
               />
             </ElFormItem>
           </ElForm>
@@ -458,22 +540,126 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
           </div>
         </>
       ),
-      closeCallBack: () => (pwdForm.newPwd = ""),
+      closeCallBack: resetPwdForm,
       beforeSure: done => {
-        ruleFormRef.value.validate(valid => {
+        ruleFormRef.value.validate(async valid => {
           if (valid) {
-            // 表单规则校验通过
-            message(`已成功重置 ${row.username} 用户的密码`, {
-              type: "success"
-            });
-            console.log(pwdForm.newPwd);
-            // 根据实际业务使用pwdForm.newPwd和row里的某些字段去调用重置用户密码接口即可
-            done(); // 关闭弹框
-            onSearch(); // 刷新表格数据
+            const res: any = await resetUserPassword(row.id, pwdForm.newPwd);
+            if (res?.code === 200 || res?.code === 0) {
+              message(
+                `已成功重置 ${userDisplayName(row)} 用户的密码，并强制下线全部会话`,
+                { type: "success" }
+              );
+              done();
+              resetPwdForm();
+              onSearch();
+            } else {
+              message(res?.msg || res?.message || "重置密码失败", {
+                type: "error"
+              });
+            }
           }
         });
       }
     });
+  }
+
+  async function handleUnlock(row) {
+    const res: any = await unlockUser(row.id);
+    if (res?.code === 200 || res?.code === 0) {
+      message(`已解锁 ${userDisplayName(row)} 用户`, { type: "success" });
+      onSearch();
+    } else {
+      message(res?.msg || res?.message || "解锁失败", { type: "error" });
+    }
+  }
+
+  async function handleSecurityTimeline(row) {
+    securityTimeline.pageNum = 1;
+    await loadSecurityTimeline(row.id);
+    addDialog({
+      title: `${userDisplayName(row)} 最近安全事件`,
+      width: "520px",
+      draggable: true,
+      fullscreen: deviceDetection(),
+      closeOnClickModal: true,
+      hideFooter: true,
+      contentRenderer: () => (
+        <div v-loading={securityTimeline.loading}>
+          {securityTimeline.list.length ? (
+            <ElTimeline>
+              {securityTimeline.list.map(item => (
+                <ElTimelineItem
+                  key={item.id}
+                  timestamp={item.createdAt}
+                  type={securityEventType(item)}
+                >
+                  <div class="text-sm font-medium">
+                    {securityEventTitle(item)}
+                  </div>
+                  <div class="mt-1 text-xs text-[var(--el-text-color-secondary)]">
+                    {item.message || "-"}
+                  </div>
+                  <div class="mt-1 text-xs text-[var(--el-text-color-secondary)]">
+                    IP：{item.ip || "-"}
+                  </div>
+                </ElTimelineItem>
+              ))}
+            </ElTimeline>
+          ) : (
+            <el-empty description="暂无安全事件" />
+          )}
+          <div class="mt-3 flex justify-end">
+            <ElPagination
+              small
+              background
+              layout="prev, pager, next"
+              total={securityTimeline.total}
+              page-size={securityTimeline.pageSize}
+              current-page={securityTimeline.pageNum}
+              onCurrentChange={page => {
+                securityTimeline.pageNum = page;
+                loadSecurityTimeline(row.id);
+              }}
+            />
+          </div>
+        </div>
+      )
+    });
+  }
+
+  async function loadSecurityTimeline(userId: number | string) {
+    securityTimeline.loading = true;
+    try {
+      const res = await getUserSecurityTimeline(userId, {
+        pageNum: securityTimeline.pageNum,
+        pageSize: securityTimeline.pageSize
+      });
+      securityTimeline.list = res?.data?.list ?? [];
+      securityTimeline.total = res?.data?.total ?? 0;
+      securityTimeline.pageSize =
+        res?.data?.pageSize ?? securityTimeline.pageSize;
+      securityTimeline.pageNum =
+        res?.data?.currentPage ?? securityTimeline.pageNum;
+    } finally {
+      securityTimeline.loading = false;
+    }
+  }
+
+  function securityEventTitle(item: UserSecurityEvent) {
+    const actionMap = {
+      login: "登录",
+      account_locked: "登录失败锁定",
+      account_unlocked: "账号解锁",
+      password_changed: "修改密码",
+      password_reset: "重置密码",
+      force_offline: "强制下线"
+    };
+    return actionMap[item.action] || item.action || item.category;
+  }
+
+  function securityEventType(item: UserSecurityEvent) {
+    return item.status >= 200 && item.status < 400 ? "success" : "danger";
   }
 
   /** 分配角色 */
@@ -544,7 +730,9 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
     handleDelete,
     handleUpload,
     handleReset,
+    handleUnlock,
     handleRole,
+    handleSecurityTimeline,
     handleSizeChange,
     onSelectionCancel,
     handleCurrentChange,

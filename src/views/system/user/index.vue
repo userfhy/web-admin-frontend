@@ -8,6 +8,8 @@ import { useRenderIcon } from "@/components/ReIcon/src/hooks";
 import Upload from "~icons/ri/upload-line";
 import Role from "~icons/ri/admin-line";
 import Password from "~icons/ri/lock-password-line";
+import Timeline from "~icons/ri/time-line";
+import Unlock from "~icons/ri/lock-unlock-line";
 import More from "~icons/ep/more-filled";
 import Delete from "~icons/ep/delete";
 import EditPen from "~icons/ep/edit-pen";
@@ -42,7 +44,9 @@ const {
   handleDelete,
   handleUpload,
   handleReset,
+  handleUnlock,
   handleRole,
+  handleSecurityTimeline,
   handleSizeChange,
   onSelectionCancel,
   handleCurrentChange,
@@ -241,6 +245,30 @@ const {
                         @click="handleRole(row)"
                       >
                         分配角色
+                      </el-button>
+                    </el-dropdown-item>
+                    <el-dropdown-item v-if="row.locked_until">
+                      <el-button
+                        :class="buttonClass"
+                        link
+                        type="primary"
+                        :size="size"
+                        :icon="useRenderIcon(Unlock)"
+                        @click="handleUnlock(row)"
+                      >
+                        解锁账号
+                      </el-button>
+                    </el-dropdown-item>
+                    <el-dropdown-item>
+                      <el-button
+                        :class="buttonClass"
+                        link
+                        type="primary"
+                        :size="size"
+                        :icon="useRenderIcon(Timeline)"
+                        @click="handleSecurityTimeline(row)"
+                      >
+                        安全事件
                       </el-button>
                     </el-dropdown-item>
                   </el-dropdown-menu>

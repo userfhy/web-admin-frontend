@@ -193,11 +193,114 @@ export type LogListParams = {
   endTime?: string;
 };
 
+export type PermissionAPIRule = {
+  id: number;
+  roleKey: string;
+  path: string;
+  method: string;
+  existsRoute: boolean;
+};
+
+export type PermissionRole = {
+  id: number;
+  name: string;
+  key: string;
+  isAdmin: boolean;
+  status: number;
+  menuIds: number[];
+  menuCount: number;
+  apiRules: PermissionAPIRule[];
+  apiCount: number;
+  issueCount: number;
+};
+
+export type PermissionMenu = {
+  id: number;
+  parentId: number;
+  menuType: number;
+  title: string;
+  name: string;
+  path: string;
+  component: string;
+  auths: string;
+  roleKeys: string[];
+};
+
+export type PermissionIssue = {
+  code: string;
+  level: string;
+  message: string;
+  roleKey?: string;
+  menuId?: number;
+  apiId?: number;
+  path?: string;
+  method?: string;
+};
+
+export type PermissionScanSummary = {
+  menuWithoutRole: PermissionIssue[];
+  menuMissingPeer: PermissionIssue[];
+  roleWithoutMenu: PermissionIssue[];
+  roleWithoutApi: PermissionIssue[];
+  casbinNoRole: PermissionIssue[];
+  casbinNoRoute: PermissionIssue[];
+  roleMenuOrphan: PermissionIssue[];
+};
+
+export type PermissionVisualizationResult = {
+  roles: PermissionRole[];
+  menus: PermissionMenu[];
+  apiRules: PermissionAPIRule[];
+  backendRoutes: Array<{
+    path: string;
+    method: string;
+  }>;
+  scans: PermissionScanSummary;
+};
+
+export type UserSecurityEvent = {
+  id: number;
+  category: string;
+  action: string;
+  message: string;
+  ip: string;
+  status: number;
+  createdAt: string;
+};
+
 /** 获取系统管理-用户管理列表 */
 export const getUserList = (params?: object) => {
   return http.request<ResultTable>("get", baseUrlApi("user"), {
     params
   });
+};
+
+export const resetUserPassword = (
+  userId: number | string,
+  newPassword: string
+) => {
+  return http.request<Result>(
+    "put",
+    baseUrlApi(`user/${userId}/reset_password`),
+    {
+      data: { newPassword }
+    }
+  );
+};
+
+export const unlockUser = (userId: number | string) => {
+  return http.request<Result>("put", baseUrlApi(`user/${userId}/unlock`));
+};
+
+export const getUserSecurityTimeline = (
+  userId: number | string,
+  params?: { pageNum?: number; pageSize?: number }
+) => {
+  return http.request<ResultTable<UserSecurityEvent>>(
+    "get",
+    baseUrlApi(`user/${userId}/security_timeline`),
+    { params }
+  );
 };
 
 /** 系统管理-用户管理-获取所有角色列表 */
@@ -259,6 +362,14 @@ export const getServerMonitor = () => {
   return http.request<Result<ServerMonitorResult>>(
     "get",
     baseUrlApi("sys/server-monitor")
+  );
+};
+
+/** 获取系统管理-权限可视化聚合数据 */
+export const getPermissionVisualization = () => {
+  return http.request<Result<PermissionVisualizationResult>>(
+    "get",
+    baseUrlApi("sys/permission-visualization")
   );
 };
 
