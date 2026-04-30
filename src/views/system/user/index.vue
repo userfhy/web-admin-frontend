@@ -200,6 +200,16 @@ const {
                   </el-button>
                 </template>
               </el-popconfirm>
+              <el-button
+                class="reset-margin"
+                link
+                type="primary"
+                :size="size"
+                :icon="useRenderIcon(Timeline)"
+                @click="handleSecurityTimeline(row)"
+              >
+                安全事件
+              </el-button>
               <el-dropdown>
                 <el-button
                   class="ml-3! mt-[2px]!"
@@ -257,18 +267,6 @@ const {
                         @click="handleUnlock(row)"
                       >
                         解锁账号
-                      </el-button>
-                    </el-dropdown-item>
-                    <el-dropdown-item>
-                      <el-button
-                        :class="buttonClass"
-                        link
-                        type="primary"
-                        :size="size"
-                        :icon="useRenderIcon(Timeline)"
-                        @click="handleSecurityTimeline(row)"
-                      >
-                        安全事件
                       </el-button>
                     </el-dropdown-item>
                   </el-dropdown-menu>

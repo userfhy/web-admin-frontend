@@ -219,7 +219,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
     list: [] as UserSecurityEvent[],
     total: 0,
     pageNum: 1,
-    pageSize: 5
+    pageSize: 10
   });
 
   function userDisplayName(row) {
