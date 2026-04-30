@@ -11,6 +11,7 @@ const props = defineProps({
 });
 
 const detail = computed(() => (props.data[0] as any) || {});
+const descriptionData = computed(() => [detail.value]);
 
 const columns = [
   {
@@ -88,7 +89,12 @@ const dataList = computed(() => [
 <template>
   <div>
     <el-scrollbar>
-      <PureDescriptions border :data="detail" :columns="columns" :column="5" />
+      <PureDescriptions
+        border
+        :data="descriptionData"
+        :columns="columns"
+        :column="5"
+      />
     </el-scrollbar>
     <el-tabs :modelValue="'message'" type="border-card" class="mt-4">
       <el-tab-pane

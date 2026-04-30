@@ -35,10 +35,12 @@ export type OnlineUserRow = {
   userAgent?: string;
   browser?: string;
   os?: string;
+  deviceName?: string;
   loginAt: string;
   lastActiveAt: string;
   expiresAt: string;
   tokenHash: string;
+  tokenRemainingSeconds?: number;
 };
 
 export type OnlineUserListParams = {
@@ -185,6 +187,7 @@ export type LogListParams = {
   pageSize: number;
   username?: string;
   module?: string;
+  ip?: string;
   status?: string | number;
   startTime?: string;
   endTime?: string;

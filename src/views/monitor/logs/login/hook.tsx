@@ -9,6 +9,7 @@ import { type Ref, reactive, ref, onMounted } from "vue";
 export function useRole(tableRef: Ref) {
   const form = reactive({
     username: "",
+    ip: "",
     status: "",
     loginTime: [] as string[]
   });
@@ -76,6 +77,7 @@ export function useRole(tableRef: Ref) {
       pageNum: pagination.currentPage,
       pageSize: pagination.pageSize,
       username: form.username || undefined,
+      ip: form.ip || undefined,
       status: form.status || undefined,
       startTime: startTime || undefined,
       endTime: endTime || undefined
@@ -125,14 +127,24 @@ export function useRole(tableRef: Ref) {
 
   async function onSearch() {
     loading.value = true;
-    const { code, data } = await getLoginLogsList(buildParams());
-    if ((code === 200 || code === 0) && data) {
-      dataList.value = data.list || [];
-      pagination.total = data.total || 0;
-      pagination.pageSize = data.pageSize || pagination.pageSize;
-      pagination.currentPage = data.currentPage || pagination.currentPage;
+    try {
+      const {
+        code,
+        data,
+        msg,
+        message: errMessage
+      } = await getLoginLogsList(buildParams());
+      if ((code === 200 || code === 0) && data) {
+        dataList.value = data.list || [];
+        pagination.total = data.total || 0;
+        pagination.pageSize = data.pageSize || pagination.pageSize;
+        pagination.currentPage = data.currentPage || pagination.currentPage;
+      } else {
+        message(msg || errMessage || "获取登录日志失败", { type: "error" });
+      }
+    } finally {
+      loading.value = false;
     }
-    loading.value = false;
   }
 
   const resetForm = formEl => {

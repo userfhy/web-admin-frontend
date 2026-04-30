@@ -4,7 +4,7 @@ import { message } from "@/utils/message";
 import { addDialog } from "@/components/ReDialog";
 import { usePublicHooks } from "@/views/system/hooks";
 import type { PaginationProps } from "@pureadmin/table";
-import { type Ref, reactive, ref, onMounted } from "vue";
+import { h, type Ref, reactive, ref, onMounted } from "vue";
 import { getKeyList, useCopyToClipboard } from "@pureadmin/utils";
 import {
   deleteSystemLogs,
@@ -196,10 +196,7 @@ export function useRole(tableRef: Ref) {
       title: "系统日志详情",
       fullscreen: true,
       hideFooter: true,
-      contentRenderer: () => Detail,
-      props: {
-        data: [data]
-      }
+      contentRenderer: () => h(Detail, { data: [data] })
     });
   }
 
